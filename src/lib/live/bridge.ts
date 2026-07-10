@@ -20,6 +20,10 @@ export class MqttBridge extends EventEmitter {
       this.client.subscribe("teslamate/cars/+/+");
     });
     this.client.on("close", () => { this.connected = false; });
+    this.client.on("error", (err) => {
+      this.connected = false;
+      console.error("mqtt client error", err.message);
+    });
     this.client.on("message", (topic, payload) => {
       const parsed = parseTopic(topic);
       if (!parsed) return;
