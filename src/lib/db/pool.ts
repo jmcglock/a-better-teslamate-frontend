@@ -2,14 +2,18 @@ import { Pool } from "pg";
 
 const g = globalThis as unknown as { pgPool?: Pool };
 
-export const pool =
-  g.pgPool ??
-  new Pool({
+if (!g.pgPool) {
+  g.pgPool = new Pool({
     connectionString: process.env.DATABASE_URL,
     max: 5,
     connectionTimeoutMillis: 4000,
   });
-g.pgPool = pool;
+  g.pgPool.on("error", (err) => {
+    console.error("pg pool idle client error", err);
+  });
+}
+
+export const pool = g.pgPool;
 
 export async function q<T extends object>(text: string, params: unknown[] = []): Promise<T[]> {
   const res = await pool.query(text, params);

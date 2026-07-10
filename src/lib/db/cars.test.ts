@@ -16,11 +16,23 @@ describe("mapCarRow", () => {
     expect(c.latitude).toBeCloseTo(37.4);
     expect(c.positionDate).toBe("2026-07-10T15:00:00.000Z");
     expect(c.state).toBe("online");
+    expect(c.batteryLevel).toBe(72);
+    expect(c.usableBatteryLevel).toBe(71);
+    expect(c.idealRangeKm).toBeCloseTo(330.1);
+    expect(c.longitude).toBeCloseTo(-122.1);
+    expect(c.odometerKm).toBe(34567.2);
+    expect(c.model).toBe("3");
+    expect(c.marketingName).toBe("LR AWD");
+    expect(c.outsideTempC).toBeCloseTo(18.0);
   });
   it("nulls survive", () => {
     const c = mapCarRow({ ...row, inside_temp: null, position_date: null, db_state: null });
     expect(c.insideTempC).toBeNull();
     expect(c.positionDate).toBeNull();
     expect(c.state).toBe("offline");
+  });
+  it("name null falls back to Car 1", () => {
+    const c = mapCarRow({ ...row, name: null });
+    expect(c.name).toBe("Car 1");
   });
 });
