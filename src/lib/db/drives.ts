@@ -79,7 +79,7 @@ export async function getDrive(id: number): Promise<DriveDetail | null> {
               count(*) OVER () AS total
        FROM positions p WHERE p.drive_id = $1
      ) t
-     WHERE rn % greatest(1, (total / 500)::int) = 0 OR rn = 1 OR rn = total
+     WHERE rn % greatest(1, ceil(total::numeric / 500)::int) = 0 OR rn = 1 OR rn = total
      ORDER BY date`,
     [id],
   );
