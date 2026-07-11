@@ -1,6 +1,6 @@
 {
   "name": "teslamate-frontend",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -26,5 +26,10 @@
     "tailwindcss": "^4.1.10",
     "typescript": "^5.8.0",
     "vitest": "^4.0.0"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "^8.5.10"
+    }
   }
 }
