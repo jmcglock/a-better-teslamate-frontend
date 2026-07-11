@@ -13,22 +13,48 @@ export default function StatsCharts({
   efficiency: { label: string; v: number }[];
   health: { t: number; v: number | null }[];
   drain: { label: string; v: number }[];
-  healthSummary: { currentKm: number | null; peakKm: number | null; healthPct: number | null };
+  healthSummary: {
+    currentKm: number | null;
+    peakKm: number | null;
+    newKm: number | null;
+    healthPct: number | null;
+    degradationPct: number | null;
+    currentKwh: number | null;
+    newKwh: number | null;
+    baseline: "new" | "peak" | null;
+  };
 }) {
   const c = useChartColors();
   const distUnit = unit === "mi" ? "mi" : "km";
   const effUnit = unit === "mi" ? "Wh/mi" : "Wh/km";
   const toUnit = (km: number) => Math.round(kmToUnit(km, unit));
+  const fmtKwh = (v: number | null) => (v === null ? "–" : `${v.toFixed(1)} kWh`);
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-line bg-panel p-5">
           <p className="text-[11px] uppercase tracking-[0.16em] text-ink-2">Battery health</p>
           <p className="mt-2 font-[family-name:var(--font-cond)] text-4xl font-semibold tracking-tight">
             {healthSummary.healthPct === null ? "–" : `${Math.round(healthSummary.healthPct)}%`}
           </p>
-          <p className="mt-1 text-xs text-ink-2">vs peak observed full pack</p>
+          <p className="mt-1 text-xs text-ink-2">
+            {healthSummary.baseline === "new"
+              ? "of new EPA rated range"
+              : healthSummary.baseline === "peak"
+                ? "of peak observed (new baseline unknown)"
+                : "—"}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-line bg-panel p-5">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-ink-2">Degradation</p>
+          <p className="mt-2 font-[family-name:var(--font-cond)] text-4xl font-semibold tracking-tight">
+            {healthSummary.degradationPct === null ? "–" : `${Math.round(healthSummary.degradationPct)}%`}
+          </p>
+          <p className="mt-1 text-xs text-ink-2">
+            {fmtKwh(healthSummary.currentKwh)}
+            {healthSummary.newKwh !== null ? ` / ${fmtKwh(healthSummary.newKwh)} new` : ""}
+          </p>
         </div>
         <div className="rounded-2xl border border-line bg-panel p-5">
           <p className="text-[11px] uppercase tracking-[0.16em] text-ink-2">Current full range</p>
@@ -38,11 +64,13 @@ export default function StatsCharts({
           <p className="mt-1 text-xs text-ink-2">projected at 100% SoC</p>
         </div>
         <div className="rounded-2xl border border-line bg-panel p-5">
-          <p className="text-[11px] uppercase tracking-[0.16em] text-ink-2">Peak full range</p>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-ink-2">New rated range</p>
           <p className="mt-2 font-[family-name:var(--font-cond)] text-4xl font-semibold tracking-tight">
-            {formatDistance(healthSummary.peakKm, unit, 0)}
+            {formatDistance(healthSummary.newKm ?? healthSummary.peakKm, unit, 0)}
           </p>
-          <p className="mt-1 text-xs text-ink-2">best month on record</p>
+          <p className="mt-1 text-xs text-ink-2">
+            {healthSummary.newKm !== null ? "EPA baseline for this config" : "peak observed (fallback)"}
+          </p>
         </div>
       </div>
 

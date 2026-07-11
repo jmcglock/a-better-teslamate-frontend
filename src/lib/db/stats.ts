@@ -49,20 +49,130 @@ export async function getBatteryHealth(): Promise<{ t: number; v: number | null 
   return rows.reverse().map((r) => ({ t: r.month.getTime(), v: num(r.v) }));
 }
 
-export type BatteryHealthSummary = {
-  currentKm: number | null;
-  peakKm: number | null;
-  /** current / peak * 100 when both available */
-  healthPct: number | null;
+type CarIdentityRow = {
+  model: string | null;
+  marketing_name: string | null;
+  trim_badging: string | null;
+  vin: string | null;
+  efficiency: string | number | null;
 };
 
-export function summarizeBatteryHealth(series: { t: number; v: number | null }[]): BatteryHealthSummary {
+/**
+ * New-car EPA rated range (km) from model/trim/VIN year.
+ * Values are approximate published EPA figures for the common US configs.
+ */
+export function newCarRatedRangeKm(car: {
+  model: string | null;
+  marketingName: string | null;
+  trimBadging: string | null;
+  vin: string | null;
+}): number | null {
+  const model = (car.model ?? "").toUpperCase();
+  const market = (car.marketingName ?? "").toUpperCase();
+  const trim = (car.trimBadging ?? "").toUpperCase();
+  const vinYear = car.vin && car.vin.length >= 10 ? car.vin[9] : null;
+  // VIN position 10: L=2020, M=2021, N=2022, P=2023, R=2024, S=2025, T=2026
+  const year =
+    vinYear === "L" ? 2020
+    : vinYear === "M" ? 2021
+    : vinYear === "N" ? 2022
+    : vinYear === "P" ? 2023
+    : vinYear === "R" ? 2024
+    : vinYear === "S" ? 2025
+    : vinYear === "T" ? 2026
+    : null;
+
+  const isSR =
+    market.includes("SR") || market.includes("STANDARD") ||
+    trim === "50" || trim === "RWD" || market.includes("RWD");
+  const isLR = market.includes("LR") || market.includes("LONG") || trim === "74" || trim === "75" || trim === "AWD";
+  const isP = market.includes("P") || market.startsWith("P") || trim.startsWith("P") || market.includes("PERF");
+
+  if (model === "3") {
+    // 2017–2020 SR+ ≈ 250 mi; 2021+ RWD/SR often ~263–272 mi. Use 250 for L-year SR+.
+    if (isSR || (!isLR && !isP)) {
+      if (year !== null && year <= 2020) return 402; // 250 mi
+      return 422; // ~262 mi
+    }
+    if (isP) return 507; // ~315 mi class
+    return 534; // ~332 mi LR class
+  }
+  if (model === "Y") {
+    if (isSR || (!isLR && !isP)) return 393; // ~244 mi
+    if (isP) return 488;
+    return 530;
+  }
+  if (model === "S") return 650;
+  if (model === "X") return 560;
+  return null;
+}
+
+export async function getPrimaryCarIdentity(): Promise<{
+  model: string | null;
+  marketingName: string | null;
+  trimBadging: string | null;
+  vin: string | null;
+  efficiency: number | null;
+} | null> {
+  const rows = await q<CarIdentityRow>(`
+    SELECT model, marketing_name, trim_badging, vin, efficiency
+    FROM cars
+    ORDER BY display_priority NULLS LAST, id
+    LIMIT 1
+  `);
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    model: r.model,
+    marketingName: r.marketing_name,
+    trimBadging: r.trim_badging,
+    vin: r.vin,
+    efficiency: num(r.efficiency),
+  };
+}
+
+export type BatteryHealthSummary = {
+  currentKm: number | null;
+  /** Observed peak full-pack range in TeslaMate history */
+  peakKm: number | null;
+  /** New-car EPA rated range baseline (km), when known */
+  newKm: number | null;
+  /**
+   * Degradation vs new: current / new * 100.
+   * Falls back to current / peak only when new baseline is unknown.
+   */
+  healthPct: number | null;
+  /** 100 - healthPct when health known */
+  degradationPct: number | null;
+  /** Estimated usable pack kWh from current full range * cars.efficiency */
+  currentKwh: number | null;
+  /** Estimated new usable pack kWh from new range * cars.efficiency */
+  newKwh: number | null;
+  baseline: "new" | "peak" | null;
+};
+
+export function summarizeBatteryHealth(
+  series: { t: number; v: number | null }[],
+  opts?: { newKm?: number | null; efficiency?: number | null },
+): BatteryHealthSummary {
   const vals = series.map((p) => p.v).filter((v): v is number => v !== null && v > 0);
-  if (vals.length === 0) return { currentKm: null, peakKm: null, healthPct: null };
+  if (vals.length === 0) {
+    return {
+      currentKm: null, peakKm: null, newKm: opts?.newKm ?? null,
+      healthPct: null, degradationPct: null, currentKwh: null, newKwh: null, baseline: null,
+    };
+  }
   const currentKm = vals[vals.length - 1] ?? null;
   const peakKm = Math.max(...vals);
-  const healthPct = currentKm !== null && peakKm > 0 ? (currentKm / peakKm) * 100 : null;
-  return { currentKm, peakKm, healthPct };
+  const newKm = opts?.newKm ?? null;
+  const baselineKm = newKm && newKm > 0 ? newKm : peakKm;
+  const baseline: "new" | "peak" = newKm && newKm > 0 ? "new" : "peak";
+  const healthPct = currentKm !== null && baselineKm > 0 ? (currentKm / baselineKm) * 100 : null;
+  const degradationPct = healthPct === null ? null : Math.max(0, 100 - healthPct);
+  const eff = opts?.efficiency ?? null;
+  const currentKwh = currentKm !== null && eff !== null ? currentKm * eff : null;
+  const newKwh = newKm !== null && eff !== null ? newKm * eff : null;
+  return { currentKm, peakKm, newKm, healthPct, degradationPct, currentKwh, newKwh, baseline };
 }
 
 type DrainRow = { end_date: Date; soc_start: number | null; soc_end: number | null; hours: string | number | null };
