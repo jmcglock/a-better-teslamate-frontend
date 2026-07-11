@@ -28,11 +28,11 @@ export default function MiniMap({ latitude, longitude }: { latitude: number; lon
       container: el.current,
       style: OSM_STYLE,
       center: [longitude, latitude],
-      zoom: 13,
+      zoom: 13.5,
       interactive: false,
       attributionControl: { compact: true },
     });
-    marker.current = new maplibregl.Marker({ color: "#4A9EFF" })
+    marker.current = new maplibregl.Marker({ color: "#e31937" })
       .setLngLat([longitude, latitude])
       .addTo(map.current);
     return () => { map.current?.remove(); map.current = null; };
@@ -44,5 +44,5 @@ export default function MiniMap({ latitude, longitude }: { latitude: number; lon
     map.current?.setCenter([longitude, latitude]);
   }, [latitude, longitude]);
 
-  return <div ref={el} className="h-40 w-full overflow-hidden rounded-md border border-line" />;
+  return <div ref={el} className="h-full min-h-52 w-full overflow-hidden rounded-2xl border border-line" />;
 }

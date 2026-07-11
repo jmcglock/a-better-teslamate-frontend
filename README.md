@@ -1,6 +1,6 @@
-# teslamate-frontend
+# A Better TeslaMate Dashboard
 
-Standalone companion dashboard for [TeslaMate](https://github.com/teslamate-org/teslamate):
+Tesla-inspired companion dashboard for [TeslaMate](https://github.com/teslamate-org/teslamate):
 live car status over MQTT, drive and charge history, and stats — read-only against
 TeslaMate's Postgres. TeslaMate itself is untouched.
 

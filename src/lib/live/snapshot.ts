@@ -8,9 +8,8 @@ const NUMERIC = new Set([
   "est_battery_range_km", "charge_energy_added", "time_to_full_charge",
   "charge_current_request", "charge_current_request_max",
   "tpms_pressure_fl", "tpms_pressure_fr", "tpms_pressure_rl", "tpms_pressure_rr",
-  "download_perc", "install_perc",
+  "download_perc", "install_perc", "sun_roof_percent_open",
 ]);
-
 const BOOLEAN = new Set([
   "healthy", "is_climate_on", "is_preconditioning", "locked", "sentry_mode",
   "plugged_in", "windows_open", "doors_open", "trunk_open", "frunk_open",
