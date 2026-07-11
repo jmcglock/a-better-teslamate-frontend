@@ -19,6 +19,12 @@
       "matchDatasources": ["docker"],
       "matchPackageNames": ["node"],
       "groupName": "node-docker"
+    },
+    {
+      "matchPackageNames": ["typescript"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false,
+      "description": "Next.js 15 does not support TypeScript 7 yet."
     }
   ]
 }
