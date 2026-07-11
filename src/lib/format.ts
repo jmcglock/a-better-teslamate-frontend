@@ -1,11 +1,14 @@
 export type LengthUnit = "km" | "mi";
 export type TempUnit = "C" | "F";
+export type PressureUnit = "bar" | "psi";
 
 export const KM_PER_MI = 1.609344;
+export const PSI_PER_BAR = 14.503773773;
 const DASH = "–";
 
 export function num(v: string | number | null | undefined): number | null {
   if (v === null || v === undefined) return null;
+  if (typeof v === "string" && v.trim() === "") return null;
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? n : null;
 }
@@ -59,4 +62,14 @@ export function formatPct(v: number | null): string {
 export function formatOdometer(km: number | null, unit: LengthUnit): string {
   if (km === null) return DASH;
   return `${Math.round(kmToUnit(km, unit)).toLocaleString("en-US")} ${unit}`;
+}
+
+/** TeslaMate stores tyre pressure in bar. */
+export function formatPressure(bar: number | null, unit: PressureUnit): string {
+  if (bar === null) return DASH;
+  return unit === "psi" ? `${Math.round(bar * PSI_PER_BAR)} psi` : `${bar.toFixed(1)} bar`;
+}
+
+export function formatCost(v: number | null, symbol = "$"): string {
+  return v === null ? DASH : `${symbol}${v.toFixed(2)}`;
 }

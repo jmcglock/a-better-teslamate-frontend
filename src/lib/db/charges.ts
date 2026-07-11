@@ -48,12 +48,15 @@ const CHARGE_SELECT = `
   LEFT JOIN geofences g ON g.id = cp.geofence_id
 `;
 
-export async function listCharges(page: number, pageSize = 50): Promise<ChargeListItem[]> {
+export async function listCharges(
+  page: number,
+  pageSize = 50,
+): Promise<{ items: ChargeListItem[]; hasMore: boolean }> {
   const rows = await q<ChargeRow>(
     `${CHARGE_SELECT} WHERE cp.charge_energy_added > 0.1 ORDER BY cp.start_date DESC LIMIT $1 OFFSET $2`,
-    [pageSize, (page - 1) * pageSize],
+    [pageSize + 1, (page - 1) * pageSize],
   );
-  return rows.map(mapChargeRow);
+  return { items: rows.slice(0, pageSize).map(mapChargeRow), hasMore: rows.length > pageSize };
 }
 
 export async function getCharge(id: number): Promise<ChargeDetail | null> {

@@ -11,7 +11,7 @@ export default async function DrivesPage({ searchParams }: { searchParams: Promi
   const page = Math.max(1, Number((await searchParams).page) || 1);
   const res = await safe(Promise.all([listDrives(page), getSettings()]));
   if (!res.ok) return <DataUnavailable service="database" detail={res.error} />;
-  const [drives, settings] = res.data;
+  const [{ items: drives, hasMore }, settings] = res.data;
 
   return (
     <div>
@@ -38,7 +38,7 @@ export default async function DrivesPage({ searchParams }: { searchParams: Promi
       )}
       <nav className="mt-4 flex gap-3 text-sm">
         {page > 1 && <Link className="text-ink-2 hover:text-ink" href={`/drives?page=${page - 1}`}>← Newer</Link>}
-        {drives.length === 50 && <Link className="text-ink-2 hover:text-ink" href={`/drives?page=${page + 1}`}>Older →</Link>}
+        {hasMore && <Link className="text-ink-2 hover:text-ink" href={`/drives?page=${page + 1}`}>Older →</Link>}
       </nav>
     </div>
   );

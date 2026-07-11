@@ -6,7 +6,7 @@ import type { Settings } from "@/lib/db/settings";
 import { useLive } from "@/lib/live/useLive";
 import {
   formatDistance, formatDuration, formatEnergy, formatOdometer, formatPct,
-  formatPower, formatSpeed, formatTemp,
+  formatPower, formatSpeed, formatTemp, PSI_PER_BAR,
 } from "@/lib/format";
 import BatteryBar from "./BatteryBar";
 import StateBadge from "./StateBadge";
@@ -135,6 +135,10 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
 
   const driving = state === "driving" || (speed !== null && speed > 0);
 
+  // Composite state for visuals: catches the window where MQTT `state` still
+  // says "online" but charging_state/charger_power already show a session.
+  const displayState = charging ? "charging" : driving ? "driving" : state;
+
   const tpms = {
     fl: liveNum(live.tpms_pressure_fl),
     fr: liveNum(live.tpms_pressure_fr),
@@ -142,6 +146,9 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
     rr: liveNum(live.tpms_pressure_rr),
   };
   const hasTpms = Object.values(tpms).some((p) => p !== null);
+  // TeslaMate reports bar; render bare values, unit lives in the tile label.
+  const tyre = (bar: number | null) =>
+    bar === null ? "–" : settings.unitOfPressure === "psi" ? `${Math.round(bar * PSI_PER_BAR)}` : bar.toFixed(1);
 
   const sinceLabel = since
     ? new Date(since).toLocaleString("en-US", {
@@ -172,7 +179,7 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
               <p className="mt-1 text-sm text-ink-2">{subtitle || "Tesla"}</p>
             </div>
             <div className="flex flex-col items-end gap-2">
-              <StateBadge state={state} />
+              <StateBadge state={displayState} />
               {sinceLabel && <p className="text-[11px] text-ink-2">since {sinceLabel}</p>}
             </div>
           </div>
@@ -211,7 +218,7 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
           </div>
 
           <div className="mt-5">
-            <BatteryBar soc={usable ?? soc} state={state} chargeLimit={chargeLimit} />
+            <BatteryBar soc={usable ?? soc} state={displayState} chargeLimit={chargeLimit} />
             {soc !== null && usable !== null && soc !== usable && (
               <p className="mt-2 text-xs text-ink-2">
                 Displayed {formatPct(soc)} · usable {formatPct(usable)}
@@ -323,13 +330,18 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
           <p className="mt-1 font-[family-name:var(--font-cond)] text-lg font-semibold">{formatPct(chargeLimit)}</p>
         </div>
         <div className="bg-panel px-4 py-4">
-          <p className="text-[11px] uppercase tracking-[0.14em] text-ink-2">TPMS</p>
+          <p className="text-[11px] uppercase tracking-[0.14em] text-ink-2">
+            TPMS{hasTpms ? ` (${settings.unitOfPressure})` : ""}
+          </p>
           <p className="mt-1 font-[family-name:var(--font-cond)] text-sm font-semibold leading-snug">
-            {hasTpms
-              ? `FL ${tpms.fl?.toFixed(1) ?? "–"} · FR ${tpms.fr?.toFixed(1) ?? "–"}\nRL ${tpms.rl?.toFixed(1) ?? "–"} · RR ${tpms.rr?.toFixed(1) ?? "–"}`.split("\n").map((line, i) => (
-                  <span key={i} className="block">{line}</span>
-                ))
-              : "–"}
+            {hasTpms ? (
+              <>
+                <span className="block">FL {tyre(tpms.fl)} · FR {tyre(tpms.fr)}</span>
+                <span className="block">RL {tyre(tpms.rl)} · RR {tyre(tpms.rr)}</span>
+              </>
+            ) : (
+              "–"
+            )}
           </p>
         </div>
       </div>

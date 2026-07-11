@@ -15,29 +15,33 @@ import { safe } from "@/lib/db/pool";
 export const dynamic = "force-dynamic";
 
 export default async function StatsPage() {
+  const carRes = await safe(getPrimaryCarIdentity());
+  if (!carRes.ok) return <DataUnavailable service="database" detail={carRes.error} />;
+  const car = carRes.data;
+  if (!car) {
+    return <DataUnavailable service="database" detail="No cars found. Sign in to TeslaMate first." />;
+  }
+
   const res = await safe(
     Promise.all([
-      getMonthlyMileage(),
-      getMonthlyEfficiency(),
-      getBatteryHealth(),
-      getVampireDrain(),
+      getMonthlyMileage(car.id),
+      getMonthlyEfficiency(car.id),
+      getBatteryHealth(car.id),
+      getVampireDrain(car.id),
       getSettings(),
-      getPrimaryCarIdentity(),
     ]),
   );
   if (!res.ok) return <DataUnavailable service="database" detail={res.error} />;
-  const [mileage, efficiency, health, drain, settings, car] = res.data;
-  const newKm = car
-    ? newCarRatedRangeKm({
-        model: car.model,
-        marketingName: car.marketingName,
-        trimBadging: car.trimBadging,
-        vin: car.vin,
-      })
-    : null;
+  const [mileage, efficiency, health, drain, settings] = res.data;
+  const newKm = newCarRatedRangeKm({
+    model: car.model,
+    marketingName: car.marketingName,
+    trimBadging: car.trimBadging,
+    vin: car.vin,
+  });
   const healthSummary = summarizeBatteryHealth(health, {
     newKm,
-    efficiency: car?.efficiency ?? null,
+    efficiency: car.efficiency,
   });
 
   return (

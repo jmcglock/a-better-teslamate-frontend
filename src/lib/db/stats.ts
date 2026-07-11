@@ -14,23 +14,23 @@ export function monthLabel(d: Date): string {
 
 type MonthRow = { month: Date; v: string | number | null };
 
-export async function getMonthlyMileage(): Promise<{ label: string; v: number }[]> {
+export async function getMonthlyMileage(carId: number): Promise<{ label: string; v: number }[]> {
   const rows = await q<MonthRow>(`
     SELECT date_trunc('month', start_date) AS month, sum(distance) AS v
-    FROM drives WHERE distance > 0.1
+    FROM drives WHERE car_id = $1 AND distance > 0.1
     GROUP BY 1 ORDER BY 1 DESC LIMIT 12
-  `);
+  `, [carId]);
   return rows.reverse().map((r) => ({ label: monthLabel(r.month), v: num(r.v) ?? 0 }));
 }
 
-export async function getMonthlyEfficiency(): Promise<{ label: string; v: number }[]> {
+export async function getMonthlyEfficiency(carId: number): Promise<{ label: string; v: number }[]> {
   const rows = await q<MonthRow>(`
     SELECT date_trunc('month', d.start_date) AS month,
            sum((d.start_rated_range_km - d.end_rated_range_km) * c.efficiency) * 1000 / nullif(sum(d.distance), 0) AS v
     FROM drives d JOIN cars c ON c.id = d.car_id
-    WHERE d.distance > 0.1 AND d.start_rated_range_km IS NOT NULL AND d.end_rated_range_km IS NOT NULL
+    WHERE d.car_id = $1 AND d.distance > 0.1 AND d.start_rated_range_km IS NOT NULL AND d.end_rated_range_km IS NOT NULL
     GROUP BY 1 ORDER BY 1 DESC LIMIT 12
-  `);
+  `, [carId]);
   return rows.reverse().flatMap((r) => {
     const v = num(r.v);
     return v === null || v <= 0 ? [] : [{ label: monthLabel(r.month), v }];
@@ -38,18 +38,19 @@ export async function getMonthlyEfficiency(): Promise<{ label: string; v: number
 }
 
 /** Projected full-pack rated range (km) by month — battery health proxy. */
-export async function getBatteryHealth(): Promise<{ t: number; v: number | null }[]> {
+export async function getBatteryHealth(carId: number): Promise<{ t: number; v: number | null }[]> {
   const rows = await q<MonthRow>(`
     SELECT date_trunc('month', cp.start_date) AS month,
            max(cp.end_rated_range_km / nullif(cp.end_battery_level, 0) * 100) AS v
     FROM charging_processes cp
-    WHERE cp.end_battery_level >= 50 AND cp.end_rated_range_km IS NOT NULL
+    WHERE cp.car_id = $1 AND cp.end_battery_level >= 50 AND cp.end_rated_range_km IS NOT NULL
     GROUP BY 1 ORDER BY 1 DESC LIMIT 24
-  `);
+  `, [carId]);
   return rows.reverse().map((r) => ({ t: r.month.getTime(), v: num(r.v) }));
 }
 
 type CarIdentityRow = {
+  id: number;
   model: string | null;
   marketing_name: string | null;
   trim_badging: string | null;
@@ -108,6 +109,7 @@ export function newCarRatedRangeKm(car: {
 }
 
 export async function getPrimaryCarIdentity(): Promise<{
+  id: number;
   model: string | null;
   marketingName: string | null;
   trimBadging: string | null;
@@ -115,7 +117,7 @@ export async function getPrimaryCarIdentity(): Promise<{
   efficiency: number | null;
 } | null> {
   const rows = await q<CarIdentityRow>(`
-    SELECT model, marketing_name, trim_badging, vin, efficiency
+    SELECT id, model, marketing_name, trim_badging, vin, efficiency
     FROM cars
     ORDER BY display_priority NULLS LAST, id
     LIMIT 1
@@ -123,6 +125,7 @@ export async function getPrimaryCarIdentity(): Promise<{
   const r = rows[0];
   if (!r) return null;
   return {
+    id: r.id,
     model: r.model,
     marketingName: r.marketing_name,
     trimBadging: r.trim_badging,
@@ -177,7 +180,7 @@ export function summarizeBatteryHealth(
 
 type DrainRow = { end_date: Date; soc_start: number | null; soc_end: number | null; hours: string | number | null };
 
-export async function getVampireDrain(): Promise<{ label: string; v: number }[]> {
+export async function getVampireDrain(carId: number): Promise<{ label: string; v: number }[]> {
   // Cap lookback tightly — this window scan is expensive and was blowing the tiny Postgres pool.
   const rows = await q<DrainRow>(`
     WITH d AS (
@@ -185,7 +188,7 @@ export async function getVampireDrain(): Promise<{ label: string; v: number }[]>
              lead(start_date) OVER w AS next_start,
              lead(start_position_id) OVER w AS next_start_pos
       FROM drives
-      WHERE start_date > now() - interval '18 months'
+      WHERE car_id = $1 AND start_date > now() - interval '18 months'
       WINDOW w AS (PARTITION BY car_id ORDER BY start_date)
     )
     SELECT d.end_date, p1.battery_level AS soc_start, p2.battery_level AS soc_end,
@@ -200,7 +203,7 @@ export async function getVampireDrain(): Promise<{ label: string; v: number }[]>
         WHERE cp.car_id = d.car_id AND cp.start_date BETWEEN d.end_date AND d.next_start
       )
     ORDER BY d.end_date DESC LIMIT 200
-  `);
+  `, [carId]);
 
   const byMonth = new Map<string, { sum: number; n: number; date: Date }>();
   for (const r of rows) {

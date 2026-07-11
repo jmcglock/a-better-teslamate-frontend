@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  formatDistance, formatDuration, formatEfficiency, formatEnergy, formatOdometer, formatPct,
-  formatPower, formatSpeed, formatTemp, kmToUnit, num,
+  formatCost, formatDistance, formatDuration, formatEfficiency, formatEnergy, formatOdometer,
+  formatPct, formatPower, formatPressure, formatSpeed, formatTemp, kmToUnit, num,
 } from "@/lib/format";
 
 describe("num", () => {
@@ -11,6 +11,10 @@ describe("num", () => {
     expect(num(null)).toBeNull();
     expect(num(undefined)).toBeNull();
     expect(num("abc")).toBeNull();
+  });
+  it("null for empty/whitespace strings", () => {
+    expect(num("")).toBeNull();
+    expect(num("  ")).toBeNull();
   });
 });
 
@@ -33,5 +37,13 @@ describe("formatters", () => {
   it("power", () => expect(formatPower(11.2)).toBe("11 kW"));
   it("pct", () => expect(formatPct(82)).toBe("82%"));
   it("odometer grouped", () => expect(formatOdometer(34567.2, "km")).toBe("34,567 km"));
-  it("null → dash", () => expect(formatDistance(null, "km")).toBe("–"));
+  it("pressure bar", () => expect(formatPressure(2.9, "bar")).toBe("2.9 bar"));
+  it("pressure psi", () => expect(formatPressure(2.9, "psi")).toBe("42 psi"));
+  it("cost default symbol", () => expect(formatCost(6.184)).toBe("$6.18"));
+  it("cost custom symbol", () => expect(formatCost(6.18, "€")).toBe("€6.18"));
+  it("null → dash", () => {
+    expect(formatDistance(null, "km")).toBe("–");
+    expect(formatPressure(null, "bar")).toBe("–");
+    expect(formatCost(null)).toBe("–");
+  });
 });
