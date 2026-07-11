@@ -6,6 +6,9 @@ const NUMERIC = new Set([
   "odometer", "latitude", "longitude", "heading", "elevation", "inside_temp",
   "outside_temp", "rated_battery_range_km", "ideal_battery_range_km",
   "est_battery_range_km", "charge_energy_added", "time_to_full_charge",
+  "charge_current_request", "charge_current_request_max",
+  "tpms_pressure_fl", "tpms_pressure_fr", "tpms_pressure_rl", "tpms_pressure_rr",
+  "download_perc", "install_perc",
 ]);
 
 const BOOLEAN = new Set([
