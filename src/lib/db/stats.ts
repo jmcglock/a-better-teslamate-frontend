@@ -37,6 +37,7 @@ export async function getMonthlyEfficiency(): Promise<{ label: string; v: number
   });
 }
 
+/** Projected full-pack rated range (km) by month — battery health proxy. */
 export async function getBatteryHealth(): Promise<{ t: number; v: number | null }[]> {
   const rows = await q<MonthRow>(`
     SELECT date_trunc('month', cp.start_date) AS month,
@@ -48,15 +49,34 @@ export async function getBatteryHealth(): Promise<{ t: number; v: number | null 
   return rows.reverse().map((r) => ({ t: r.month.getTime(), v: num(r.v) }));
 }
 
+export type BatteryHealthSummary = {
+  currentKm: number | null;
+  peakKm: number | null;
+  /** current / peak * 100 when both available */
+  healthPct: number | null;
+};
+
+export function summarizeBatteryHealth(series: { t: number; v: number | null }[]): BatteryHealthSummary {
+  const vals = series.map((p) => p.v).filter((v): v is number => v !== null && v > 0);
+  if (vals.length === 0) return { currentKm: null, peakKm: null, healthPct: null };
+  const currentKm = vals[vals.length - 1] ?? null;
+  const peakKm = Math.max(...vals);
+  const healthPct = currentKm !== null && peakKm > 0 ? (currentKm / peakKm) * 100 : null;
+  return { currentKm, peakKm, healthPct };
+}
+
 type DrainRow = { end_date: Date; soc_start: number | null; soc_end: number | null; hours: string | number | null };
 
 export async function getVampireDrain(): Promise<{ label: string; v: number }[]> {
+  // Cap lookback tightly — this window scan is expensive and was blowing the tiny Postgres pool.
   const rows = await q<DrainRow>(`
     WITH d AS (
       SELECT car_id, end_date, end_position_id,
              lead(start_date) OVER w AS next_start,
              lead(start_position_id) OVER w AS next_start_pos
-      FROM drives WINDOW w AS (PARTITION BY car_id ORDER BY start_date)
+      FROM drives
+      WHERE start_date > now() - interval '18 months'
+      WINDOW w AS (PARTITION BY car_id ORDER BY start_date)
     )
     SELECT d.end_date, p1.battery_level AS soc_start, p2.battery_level AS soc_end,
            extract(epoch FROM (d.next_start - d.end_date)) / 3600 AS hours
@@ -64,11 +84,12 @@ export async function getVampireDrain(): Promise<{ label: string; v: number }[]>
     JOIN positions p1 ON p1.id = d.end_position_id
     JOIN positions p2 ON p2.id = d.next_start_pos
     WHERE d.next_start - d.end_date > interval '6 hours'
+      AND d.next_start - d.end_date < interval '14 days'
       AND NOT EXISTS (
         SELECT 1 FROM charging_processes cp
         WHERE cp.car_id = d.car_id AND cp.start_date BETWEEN d.end_date AND d.next_start
       )
-    ORDER BY d.end_date DESC LIMIT 500
+    ORDER BY d.end_date DESC LIMIT 200
   `);
 
   const byMonth = new Map<string, { sum: number; n: number; date: Date }>();
