@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f5f6f8;
+  --panel: #ffffff;
+  --ink: #1a1d23;
+  --ink-2: #5a6070;
+  --line: #e2e4ea;
+  --state-charging: #188f52;
+  --state-driving: #2465c2;
+  --state-sentry: #b25e00;
+  --state-idle: #6b7280;
+  --state-updating: #6d4fd2;
+  --chart-blue: #2e7fe0;
+  --chart-green: #188f52;
+  --chart-orange: #cc7612;
+  --chart-violet: #8b6fe8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16181d;
+    --panel: #1e2128;
+    --ink: #e8eaed;
+    --ink-2: #9aa0ac;
+    --line: #2a2e37;
+    --state-charging: #3ddc84;
+    --state-driving: #4a9eff;
+    --state-sentry: #ffb020;
+    --state-idle: #6b7280;
+    --state-updating: #8b6fe8;
+    --chart-green: #1ea65f;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-line: var(--line);
+  --font-sans: var(--font-sans);
+  --font-cond: var(--font-cond);
+  --font-mono: var(--font-mono);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+:focus-visible {
+  outline: 2px solid var(--state-driving);
+  outline-offset: 2px;
+}
+
+/* Signature: battery bar */
+.battery-bar {
+  position: relative;
+  height: 28px;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--ink) 8%, transparent);
+  overflow: hidden;
+}
+.battery-bar-fill {
+  height: 100%;
+  border-radius: 6px 0 0 6px;
+  background: var(--state-idle);
+  transition: width 0.6s ease;
+}
+.battery-bar-fill[data-state="charging"] { background: var(--state-charging); }
+.battery-bar-fill[data-state="driving"] { background: var(--state-driving); }
+.battery-bar-fill[data-state="updating"] { background: var(--state-updating); }
+.battery-bar-fill[data-state="online"] { background: color-mix(in oklab, var(--state-driving) 55%, var(--state-idle)); }
+.battery-bar-fill[data-state="charging"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.14) 50%, transparent 70%);
+  animation: shimmer 2.8s linear infinite;
+}
+.battery-bar-limit {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--ink-2);
+  opacity: 0.7;
+}
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .battery-bar-fill { transition: none; }
+  .battery-bar-fill[data-state="charging"]::after { animation: none; }
+}
