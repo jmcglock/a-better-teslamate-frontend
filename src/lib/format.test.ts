@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  formatDistance, formatDuration, formatEnergy, formatOdometer, formatPct,
+  formatDistance, formatDuration, formatEfficiency, formatEnergy, formatOdometer, formatPct,
   formatPower, formatSpeed, formatTemp, kmToUnit, num,
 } from "@/lib/format";
 
@@ -28,6 +28,8 @@ describe("formatters", () => {
   it("duration under an hour", () => expect(formatDuration(45)).toBe("45 min"));
   it("duration over an hour", () => expect(formatDuration(125)).toBe("2 h 05 min"));
   it("energy", () => expect(formatEnergy(12.44)).toBe("12.4 kWh"));
+  it("efficiency km", () => expect(formatEfficiency(150, "km")).toBe("150 Wh/km"));
+  it("efficiency mi", () => expect(formatEfficiency(150, "mi")).toBe("241 Wh/mi"));
   it("power", () => expect(formatPower(11.2)).toBe("11 kW"));
   it("pct", () => expect(formatPct(82)).toBe("82%"));
   it("odometer grouped", () => expect(formatOdometer(34567.2, "km")).toBe("34,567 km"));

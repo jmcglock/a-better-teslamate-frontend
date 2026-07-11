@@ -41,6 +41,13 @@ export function formatEnergy(kwh: number | null): string {
   return kwh === null ? DASH : `${kwh.toFixed(1)} kWh`;
 }
 
+/** whPerKm is always Wh/km; converts for mi display. */
+export function formatEfficiency(whPerKm: number | null, unit: LengthUnit): string {
+  if (whPerKm === null) return DASH;
+  if (unit === "mi") return `${Math.round(whPerKm * KM_PER_MI)} Wh/mi`;
+  return `${Math.round(whPerKm)} Wh/km`;
+}
+
 export function formatPower(kw: number | null): string {
   return kw === null ? DASH : `${Math.round(kw)} kW`;
 }

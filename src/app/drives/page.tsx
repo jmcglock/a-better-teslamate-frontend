@@ -3,7 +3,7 @@ import DataUnavailable from "@/components/DataUnavailable";
 import { listDrives } from "@/lib/db/drives";
 import { getSettings } from "@/lib/db/settings";
 import { safe } from "@/lib/db/pool";
-import { formatDistance, formatDuration, formatSpeed } from "@/lib/format";
+import { formatDistance, formatDuration, formatEfficiency, formatSpeed } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +15,11 @@ export default async function DrivesPage({ searchParams }: { searchParams: Promi
 
   return (
     <div>
-      <h1 className="mb-4 text-xl font-semibold">Drives</h1>
+      <h1 className="mb-4 font-[family-name:var(--font-cond)] text-2xl font-semibold tracking-tight">Drives</h1>
       {drives.length === 0 ? (
         <p className="text-ink-2">No drives on this page.</p>
       ) : (
-        <ul className="divide-y divide-line rounded-lg border border-line bg-panel">
+        <ul className="divide-y divide-line rounded-2xl border border-line bg-panel">
           {drives.map((d) => (
             <li key={d.id}>
               <Link href={`/drives/${d.id}`} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3 hover:bg-[color-mix(in_oklab,var(--ink)_5%,transparent)]">
@@ -29,6 +29,7 @@ export default async function DrivesPage({ searchParams }: { searchParams: Promi
                 <span className="min-w-0 flex-1 truncate text-sm">{d.startLabel} → {d.endLabel}</span>
                 <span className="text-sm">{formatDistance(d.distanceKm, settings.unitOfLength)}</span>
                 <span className="text-sm text-ink-2">{formatDuration(d.durationMin)}</span>
+                <span className="text-sm text-ink-2">{formatEfficiency(d.efficiencyWhPerKm, settings.unitOfLength)}</span>
                 <span className="text-sm text-ink-2">max {formatSpeed(d.speedMaxKmh, settings.unitOfLength)}</span>
               </Link>
             </li>
