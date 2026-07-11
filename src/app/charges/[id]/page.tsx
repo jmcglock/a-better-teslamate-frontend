@@ -3,7 +3,7 @@ import DataUnavailable from "@/components/DataUnavailable";
 import ChargeCharts from "@/components/charts/ChargeCharts";
 import { getCharge } from "@/lib/db/charges";
 import { safe } from "@/lib/db/pool";
-import { formatDuration, formatEnergy, formatPct, formatPower } from "@/lib/format";
+import { formatCost, formatDuration, formatEnergy, formatPct, formatPower } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,7 @@ export default async function ChargePage({ params }: { params: Promise<{ id: str
 
       <dl className="grid grid-cols-2 gap-3 rounded-lg border border-line bg-panel p-4 text-sm sm:grid-cols-5">
         <div><dt className="text-xs text-ink-2">Added</dt><dd>{formatEnergy(charge.energyAddedKwh)}</dd></div>
-        <div><dt className="text-xs text-ink-2">Cost</dt><dd>{charge.cost !== null ? `$${charge.cost.toFixed(2)}` : "–"}</dd></div>
+        <div><dt className="text-xs text-ink-2">Cost</dt><dd>{formatCost(charge.cost, process.env.CURRENCY ?? "$")}</dd></div>
         <div><dt className="text-xs text-ink-2">Duration</dt><dd>{formatDuration(charge.durationMin)}</dd></div>
         <div><dt className="text-xs text-ink-2">Max power</dt><dd>{formatPower(charge.maxPowerKw)}</dd></div>
         <div><dt className="text-xs text-ink-2">Battery</dt><dd>{formatPct(charge.socStart)} → {formatPct(charge.socEnd)}</dd></div>

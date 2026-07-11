@@ -78,12 +78,15 @@ const DRIVE_SELECT = `
   LEFT JOIN geofences ge ON ge.id = d.end_geofence_id
 `;
 
-export async function listDrives(page: number, pageSize = 50): Promise<DriveListItem[]> {
+export async function listDrives(
+  page: number,
+  pageSize = 50,
+): Promise<{ items: DriveListItem[]; hasMore: boolean }> {
   const rows = await q<DriveRow>(
     `${DRIVE_SELECT} WHERE d.distance > 0.1 ORDER BY d.start_date DESC LIMIT $1 OFFSET $2`,
-    [pageSize, (page - 1) * pageSize],
+    [pageSize + 1, (page - 1) * pageSize],
   );
-  return rows.map(mapDriveRow);
+  return { items: rows.slice(0, pageSize).map(mapDriveRow), hasMore: rows.length > pageSize };
 }
 
 export async function getDrive(id: number): Promise<DriveDetail | null> {

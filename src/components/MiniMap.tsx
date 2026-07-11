@@ -32,7 +32,9 @@ export default function MiniMap({ latitude, longitude }: { latitude: number; lon
       interactive: false,
       attributionControl: { compact: true },
     });
-    marker.current = new maplibregl.Marker({ color: "#e31937" })
+    const accent =
+      getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#e31937";
+    marker.current = new maplibregl.Marker({ color: accent })
       .setLngLat([longitude, latitude])
       .addTo(map.current);
     return () => { map.current?.remove(); map.current = null; };

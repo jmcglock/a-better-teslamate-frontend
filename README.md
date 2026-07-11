@@ -11,6 +11,7 @@ TeslaMate's Postgres. TeslaMate itself is untouched.
 | `DATABASE_URL` | Postgres connection string (read-only user recommended) |
 | `MQTT_URL` | mosquitto URL, e.g. `mqtt://mosquitto:1883` |
 | `MQTT_USERNAME` / `MQTT_PASSWORD` | optional broker credentials |
+| `CURRENCY` | currency symbol for charge costs (default `$`) |
 
 Create a read-only DB user:
 
