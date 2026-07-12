@@ -25,6 +25,11 @@
       "matchUpdateTypes": ["major"],
       "enabled": false,
       "description": "Next.js 15 does not support TypeScript 7 yet."
+    },
+    {
+      "description": "Auto-merge minor and patch updates",
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
     }
   ]
 }
