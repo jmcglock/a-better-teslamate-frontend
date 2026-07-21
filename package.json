@@ -1,7 +1,13 @@
 {
-  "name": "teslamate-frontend",
+  "name": "a-better-teslamate-frontend",
   "version": "0.2.1",
   "private": true,
+  "description": "Tesla-inspired companion dashboard for TeslaMate",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jmcglock/a-better-teslamate-frontend.git"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

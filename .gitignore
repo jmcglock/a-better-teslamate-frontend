@@ -3,5 +3,9 @@ node_modules/
 out/
 *.tsbuildinfo
 next-env.d.ts
-.env*.local
 .env
+.env.*
+!.env.example
+.DS_Store
+*.pem
+*.key
