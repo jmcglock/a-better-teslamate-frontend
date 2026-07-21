@@ -1,6 +1,6 @@
 {
   "name": "a-better-teslamate-frontend",
-  "version": "0.2.1",
+  "version": "1.0.0",
   "private": true,
   "description": "Tesla-inspired companion dashboard for TeslaMate",
   "license": "MIT",

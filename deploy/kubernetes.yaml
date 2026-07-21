@@ -38,8 +38,8 @@ spec:
         fsGroup: 1000
       containers:
         - name: teslamate-frontend
-          # Pin to a SHA tag from GHCR (immutable). Example only — replace before apply.
-          image: ghcr.io/jmcglock/a-better-teslamate-frontend:sha-358ea47
+          # Pin release or sha tag from GHCR (immutable).
+          image: ghcr.io/jmcglock/a-better-teslamate-frontend:1.0.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

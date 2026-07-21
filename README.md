@@ -8,11 +8,11 @@ TeslaMate's Postgres. TeslaMate itself is untouched.
 
 ## Quick start (Docker)
 
-Images are tagged by **git SHA** (immutable). No floating `latest`.
+Prefer a **release tag** (semver). Every main build also gets an immutable `sha-<short>` tag. No floating `latest`.
 
 ```bash
-# pick a SHA tag from Packages / Actions, e.g. sha-358ea47
-IMG=ghcr.io/jmcglock/a-better-teslamate-frontend:sha-358ea47
+IMG=ghcr.io/jmcglock/a-better-teslamate-frontend:1.0.0
+# or pin a build: ...:sha-<short> from Packages / Actions
 
 docker pull "$IMG"
 docker run --rm -p 3000:3000 \
@@ -29,7 +29,7 @@ docker compose up -d
 ```
 
 Image: `ghcr.io/jmcglock/a-better-teslamate-frontend`  
-Tags: `sha-<short>` on every main build; optional manual tag; semver on GitHub Releases.
+Tags: `1.0.0` / `v1.0.0` on releases; `sha-<short>` on every main build.
 
 ## Configuration
 
