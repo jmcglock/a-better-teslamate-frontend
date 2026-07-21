@@ -8,24 +8,28 @@ TeslaMate's Postgres. TeslaMate itself is untouched.
 
 ## Quick start (Docker)
 
-```bash
-docker pull ghcr.io/jmcglock/a-better-teslamate-frontend:latest
+Images are tagged by **git SHA** (immutable). No floating `latest`.
 
+```bash
+# pick a SHA tag from Packages / Actions, e.g. sha-358ea47
+IMG=ghcr.io/jmcglock/a-better-teslamate-frontend:sha-358ea47
+
+docker pull "$IMG"
 docker run --rm -p 3000:3000 \
   -e DATABASE_URL='postgres://teslamate_ro:PASSWORD@db-host:5432/teslamate' \
   -e MQTT_URL='mqtt://mosquitto:1883' \
-  ghcr.io/jmcglock/a-better-teslamate-frontend:latest
+  "$IMG"
 ```
 
 Or with Compose (set vars in a local `.env`, never commit it):
 
 ```bash
-cp .env.example .env   # edit URLs / passwords
+cp .env.example .env   # edit URLs / passwords + IMAGE_TAG
 docker compose up -d
 ```
 
 Image: `ghcr.io/jmcglock/a-better-teslamate-frontend`  
-Tags: `latest` (main), semver release tags, and git SHA.
+Tags: `sha-<short>` on every main build; optional manual tag; semver on GitHub Releases.
 
 ## Configuration
 
@@ -79,7 +83,7 @@ cluster secrets or an external secret store — never in git.
 | Workflow | Trigger | What it does |
 |---|---|---|
 | CI | PR + push to `main` | `npm test` + `npm run build` |
-| CD | push to `main` (app paths), release, or manual | build/push multi-tag image to GHCR |
+| CD | push to `main` (app paths), release, or manual | build/push `sha-<short>` image to GHCR |
 
 CD authenticates with the job’s `GITHUB_TOKEN` only (`packages: write`). No long-lived
 registry passwords are stored in the repo.

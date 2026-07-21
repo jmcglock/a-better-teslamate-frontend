@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag for the Docker image"
-        required: true
-        default: "latest"
+        description: "Optional extra image tag (SHA always published)"
+        required: false
+        default: ""
   push:
     branches: [main]
     paths:
@@ -46,9 +46,8 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=sha,prefix=
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' }}
             type=semver,pattern={{version}}
             type=ref,event=tag
 

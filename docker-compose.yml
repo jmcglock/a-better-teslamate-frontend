@@ -3,7 +3,8 @@
 
 services:
   teslamate-frontend:
-    image: ghcr.io/jmcglock/a-better-teslamate-frontend:latest
+    # Pin to a SHA tag from GHCR (no floating latest).
+    image: ghcr.io/jmcglock/a-better-teslamate-frontend:${IMAGE_TAG:?set IMAGE_TAG e.g. sha-358ea47}
     # Or build locally:
     # build: .
     ports:
