@@ -15,11 +15,21 @@ export default function Nav() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-[color-mix(in_oklab,var(--bg)_88%,transparent)] backdrop-blur-xl">
       <nav className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-3 sm:px-6 lg:px-8">
-        <Link href="/" className="mr-3 flex min-w-0 flex-col leading-tight">
-          <span className="truncate font-[family-name:var(--font-cond)] text-sm font-semibold tracking-[0.14em] text-ink">
-            A BETTER TESLAMATE
+        <Link href="/" className="mr-3 flex min-w-0 items-center gap-2.5 leading-tight">
+          {/* logo is black strokes; invert on dark scheme */}
+          <img
+            src="/logo.png"
+            alt=""
+            width={32}
+            height={32}
+            className="brand-logo h-8 w-8 shrink-0"
+          />
+          <span className="min-w-0 flex flex-col">
+            <span className="truncate font-[family-name:var(--font-cond)] text-sm font-semibold tracking-[0.14em] text-ink">
+              A BETTER TESLAMATE
+            </span>
+            <span className="truncate text-[10px] uppercase tracking-[0.22em] text-ink-2">Dashboard</span>
           </span>
-          <span className="truncate text-[10px] uppercase tracking-[0.22em] text-ink-2">Dashboard</span>
         </Link>
         <div className="ml-auto flex items-center gap-1 sm:ml-0 sm:gap-1.5">
           {links.map(({ href, label }) => {

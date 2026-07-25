@@ -45,6 +45,16 @@
   }
 }
 
+/* Black line-art logo → light ink on dark UI */
+.brand-logo {
+  filter: invert(1);
+}
+@media (prefers-color-scheme: light) {
+  .brand-logo {
+    filter: none;
+  }
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-panel: var(--panel);
