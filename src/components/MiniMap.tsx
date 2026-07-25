@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import maplibregl from "maplibre-gl";
+import { Map, Marker } from "maplibre-gl";
+import type { Map as MaplibreMap, Marker as MaplibreMarker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 export const OSM_STYLE = {
@@ -19,12 +20,12 @@ export const OSM_STYLE = {
 
 export default function MiniMap({ latitude, longitude }: { latitude: number; longitude: number }) {
   const el = useRef<HTMLDivElement>(null);
-  const map = useRef<maplibregl.Map | null>(null);
-  const marker = useRef<maplibregl.Marker | null>(null);
+  const map = useRef<MaplibreMap | null>(null);
+  const marker = useRef<MaplibreMarker | null>(null);
 
   useEffect(() => {
     if (!el.current || map.current) return;
-    map.current = new maplibregl.Map({
+    map.current = new Map({
       container: el.current,
       style: OSM_STYLE,
       center: [longitude, latitude],
@@ -34,7 +35,7 @@ export default function MiniMap({ latitude, longitude }: { latitude: number; lon
     });
     const accent =
       getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#e31937";
-    marker.current = new maplibregl.Marker({ color: accent })
+    marker.current = new Marker({ color: accent })
       .setLngLat([longitude, latitude])
       .addTo(map.current);
     return () => { map.current?.remove(); map.current = null; };

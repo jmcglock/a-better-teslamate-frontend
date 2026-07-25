@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import maplibregl, { type LngLatBoundsLike } from "maplibre-gl";
+import { Map, Marker, type LngLatBoundsLike } from "maplibre-gl";
+import type { Map as MaplibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { OSM_STYLE } from "./MiniMap";
 import { useChartColors } from "./charts/useChartColors";
 
 export default function RouteMap({ points }: { points: { lat: number; lon: number }[] }) {
   const el = useRef<HTMLDivElement>(null);
-  const map = useRef<maplibregl.Map | null>(null);
+  const map = useRef<MaplibreMap | null>(null);
   const c = useChartColors();
 
   useEffect(() => {
@@ -17,8 +18,8 @@ export default function RouteMap({ points }: { points: { lat: number; lon: numbe
 
     // Single recorded position: no line to draw, show a marker instead.
     if (coords.length < 2) {
-      const m = new maplibregl.Map({ container: el.current, style: OSM_STYLE, center: coords[0], zoom: 14 });
-      new maplibregl.Marker({ color: c.blue }).setLngLat(coords[0]).addTo(m);
+      const m = new Map({ container: el.current, style: OSM_STYLE, center: coords[0], zoom: 14 });
+      new Marker({ color: c.blue }).setLngLat(coords[0]).addTo(m);
       map.current = m;
       return () => { m.remove(); map.current = null; };
     }
@@ -29,7 +30,7 @@ export default function RouteMap({ points }: { points: { lat: number; lon: numbe
       [Math.min(...lons), Math.min(...lats)],
       [Math.max(...lons), Math.max(...lats)],
     ];
-    const m = new maplibregl.Map({ container: el.current, style: OSM_STYLE, bounds, fitBoundsOptions: { padding: 40 } });
+    const m = new Map({ container: el.current, style: OSM_STYLE, bounds, fitBoundsOptions: { padding: 40 } });
     m.on("load", () => {
       m.addSource("route", {
         type: "geojson",
