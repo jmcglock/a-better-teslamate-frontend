@@ -6,19 +6,44 @@ export type ChargeRow = {
   charge_energy_added: string | null; charge_energy_used: string | null; cost: string | null;
   duration_min: number | null; start_battery_level: number | null; end_battery_level: number | null;
   location: string | null; max_power: number | null;
+  start_rated_range_km: string | null; end_rated_range_km: string | null;
+  outside_temp_avg: string | null;
+  max_voltage: number | null; fast_charger: boolean | null;
+  latitude: string | null; longitude: string | null;
 };
 
 export type ChargeListItem = {
   id: number; startDate: string; endDate: string | null; location: string;
   energyAddedKwh: number | null; energyUsedKwh: number | null; cost: number | null;
   durationMin: number | null; socStart: number | null; socEnd: number | null; maxPowerKw: number | null;
+  startRatedRangeKm: number | null; endRatedRangeKm: number | null;
+  outsideTempAvgC: number | null;
+  maxVoltage: number | null; fastCharger: boolean | null;
+  latitude: number | null; longitude: number | null;
+  /** DC fast charge heuristic from voltage / power / Tesla flag */
+  chargeKind: "DC" | "AC" | null;
 };
 
 export type CurveRow = { date: Date; charger_power: number | null; battery_level: number | null };
 export type CurvePoint = { t: number; power: number | null; soc: number | null };
 export type ChargeDetail = ChargeListItem & { points: CurvePoint[] };
 
+export function inferChargeKind(opts: {
+  fastCharger: boolean | null;
+  maxVoltage: number | null;
+  maxPowerKw: number | null;
+}): "DC" | "AC" | null {
+  if (opts.fastCharger === true) return "DC";
+  if (opts.maxVoltage !== null && opts.maxVoltage >= 350) return "DC";
+  if (opts.maxPowerKw !== null && opts.maxPowerKw >= 20) return "DC";
+  if (opts.maxVoltage !== null || opts.maxPowerKw !== null || opts.fastCharger === false) return "AC";
+  return null;
+}
+
 export function mapChargeRow(r: ChargeRow): ChargeListItem {
+  const maxVoltage = r.max_voltage;
+  const maxPowerKw = r.max_power;
+  const fastCharger = r.fast_charger;
   return {
     id: r.id,
     startDate: r.start_date.toISOString(),
@@ -30,7 +55,15 @@ export function mapChargeRow(r: ChargeRow): ChargeListItem {
     durationMin: r.duration_min,
     socStart: r.start_battery_level,
     socEnd: r.end_battery_level,
-    maxPowerKw: r.max_power,
+    maxPowerKw,
+    startRatedRangeKm: num(r.start_rated_range_km),
+    endRatedRangeKm: num(r.end_rated_range_km),
+    outsideTempAvgC: num(r.outside_temp_avg),
+    maxVoltage,
+    fastCharger,
+    latitude: num(r.latitude),
+    longitude: num(r.longitude),
+    chargeKind: inferChargeKind({ fastCharger, maxVoltage, maxPowerKw }),
   };
 }
 
@@ -41,11 +74,16 @@ export function mapCurvePoint(r: CurveRow): CurvePoint {
 const CHARGE_SELECT = `
   SELECT cp.id, cp.start_date, cp.end_date, cp.charge_energy_added, cp.charge_energy_used,
          cp.cost, cp.duration_min, cp.start_battery_level, cp.end_battery_level,
+         cp.start_rated_range_km, cp.end_rated_range_km, cp.outside_temp_avg,
          COALESCE(g.name, a.city, a.display_name) AS location,
-         (SELECT max(ch.charger_power) FROM charges ch WHERE ch.charging_process_id = cp.id) AS max_power
+         (SELECT max(ch.charger_power) FROM charges ch WHERE ch.charging_process_id = cp.id) AS max_power,
+         (SELECT max(ch.charger_voltage) FROM charges ch WHERE ch.charging_process_id = cp.id) AS max_voltage,
+         (SELECT bool_or(ch.fast_charger_present) FROM charges ch WHERE ch.charging_process_id = cp.id) AS fast_charger,
+         pos.latitude AS latitude, pos.longitude AS longitude
   FROM charging_processes cp
   LEFT JOIN addresses a ON a.id = cp.address_id
   LEFT JOIN geofences g ON g.id = cp.geofence_id
+  LEFT JOIN positions pos ON pos.id = cp.position_id
 `;
 
 export async function listCharges(

@@ -2,20 +2,31 @@ import { Pool } from "pg";
 
 const g = globalThis as unknown as { pgPool?: Pool };
 
+const isProd = process.env.NODE_ENV === "production";
+
 function createPool(): Pool {
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     // TeslaMate Postgres often runs with max_connections ~20 shared with
-    // TeslaMate + Grafana. Keep this tiny and release idle clients quickly.
-    max: 2,
-    min: 0,
-    idleTimeoutMillis: 5_000,
+    // TeslaMate + Grafana. Keep this modest; hold a warm client in prod so
+    // first-click after idle does not pay TCP + auth again.
+    max: 3,
+    min: isProd ? 1 : 0,
+    idleTimeoutMillis: isProd ? 60_000 : 10_000,
     connectionTimeoutMillis: 4_000,
-    allowExitOnIdle: true,
+    allowExitOnIdle: !isProd,
   });
   pool.on("error", (err) => {
     console.error("pg pool idle client error", err);
   });
+  // Warm one connection in production so the first request is not cold.
+  // Skip during `next build` (no DB) and when DATABASE_URL is unset.
+  const isBuild = process.env.NEXT_PHASE === "phase-production-build";
+  if (isProd && !isBuild && process.env.DATABASE_URL) {
+    pool.query("SELECT 1").catch((err) => {
+      console.error("pg pool warm-up failed", err instanceof Error ? err.message : err);
+    });
+  }
   return pool;
 }
 

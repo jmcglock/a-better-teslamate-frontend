@@ -9,7 +9,7 @@ const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variab
 
 export const metadata: Metadata = {
   title: "A Better TeslaMate Dashboard",
-  description: "Tesla-inspired companion dashboard for TeslaMate — live status, drives, charges, and stats.",
+  description: "Tesla-inspired companion dashboard for TeslaMate — live status, drives, charges, stats, timeline, places, and updates.",
   icons: {
     icon: [
       { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },

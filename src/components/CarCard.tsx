@@ -4,13 +4,14 @@ import type { ReactNode } from "react";
 import type { CarCard as CarCardData } from "@/lib/db/cars";
 import type { Settings } from "@/lib/db/settings";
 import { useLive } from "@/lib/live/useLive";
+import { parseActiveRoute } from "@/lib/live/snapshot";
 import {
   formatDistance, formatDuration, formatEnergy, formatOdometer, formatPct,
-  formatPower, formatSpeed, formatTemp, PSI_PER_BAR,
+  formatPower, formatSinceDuration, formatSpeed, formatTemp, KM_PER_MI, PSI_PER_BAR,
 } from "@/lib/format";
 import BatteryBar from "./BatteryBar";
 import StateBadge from "./StateBadge";
-import MiniMap from "./MiniMap";
+import MiniMap from "./LazyMiniMap";
 
 function liveNum(v: unknown): number | null {
   return typeof v === "number" ? v : null;
@@ -43,6 +44,13 @@ function parseLocation(live: Record<string, unknown>): { lat: number | null; lon
 function formatHours(h: number | null): string {
   if (h === null) return "–";
   return formatDuration(h * 60);
+}
+
+function openParts(
+  labels: [string, boolean | null][],
+): string | null {
+  const open = labels.filter(([, v]) => v === true).map(([n]) => n);
+  return open.length ? open.join(", ") : null;
 }
 
 function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -112,6 +120,13 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
   const color = liveStr(live.exterior_color);
   const wheels = liveStr(live.wheel_type);
   const trim = liveStr(live.trim_badging);
+  const spoiler = liveStr(live.spoiler_type);
+  const sunRoofState = liveStr(live.sun_roof_state);
+  const scheduledCharge = liveStr(live.scheduled_charging_start_time);
+  const downloadPerc = liveNum(live.download_perc);
+  const installPerc = liveNum(live.install_perc);
+  const sunRoofPct = liveNum(live.sun_roof_percent_open);
+  const centerDisplay = liveNum(live.center_display_state);
 
   const locked = liveBool(live.locked);
   const plugged = liveBool(live.plugged_in);
@@ -126,6 +141,36 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
   const updateAvail = liveBool(live.update_available);
   const chargePortOpen = liveBool(live.charge_port_door_open);
   const healthy = liveBool(live.healthy);
+  const sunRoofInstalled = liveBool(live.sun_roof_installed);
+  const serviceMode = liveBool(live.service_mode);
+
+  const doorDetail = openParts([
+    ["FL", liveBool(live.driver_front_door_open)],
+    ["FR", liveBool(live.passenger_front_door_open)],
+    ["RL", liveBool(live.driver_rear_door_open)],
+    ["RR", liveBool(live.passenger_rear_door_open)],
+  ]);
+  const windowDetail = openParts([
+    ["FL", liveBool(live.driver_front_window_open)],
+    ["FR", liveBool(live.passenger_front_window_open)],
+    ["RL", liveBool(live.driver_rear_window_open)],
+    ["RR", liveBool(live.passenger_rear_window_open)],
+  ]);
+
+  const route = parseActiveRoute(live.active_route) ?? (() => {
+    const dest = liveStr(live.active_route_destination);
+    if (!dest) return null;
+    return {
+      destination: dest,
+      energyAtArrival: null as number | null,
+      milesToArrival: null as number | null,
+      minutesToArrival: null as number | null,
+      trafficMinutesDelay: null as number | null,
+      latitude: liveNum(live.active_route_latitude),
+      longitude: liveNum(live.active_route_longitude),
+      error: null as string | null,
+    };
+  })();
 
   const charging =
     state === "charging" ||
@@ -145,23 +190,40 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
     rl: liveNum(live.tpms_pressure_rl),
     rr: liveNum(live.tpms_pressure_rr),
   };
+  const tpmsWarn = {
+    fl: liveBool(live.tpms_soft_warning_fl) === true,
+    fr: liveBool(live.tpms_soft_warning_fr) === true,
+    rl: liveBool(live.tpms_soft_warning_rl) === true,
+    rr: liveBool(live.tpms_soft_warning_rr) === true,
+  };
   const hasTpms = Object.values(tpms).some((p) => p !== null);
+  const anyTpmsWarn = Object.values(tpmsWarn).some(Boolean);
   // TeslaMate reports bar; render bare values, unit lives in the tile label.
-  const tyre = (bar: number | null) =>
-    bar === null ? "–" : settings.unitOfPressure === "psi" ? `${Math.round(bar * PSI_PER_BAR)}` : bar.toFixed(1);
+  const tyre = (bar: number | null, warn: boolean) => {
+    if (bar === null) return "–";
+    const v = settings.unitOfPressure === "psi" ? `${Math.round(bar * PSI_PER_BAR)}` : bar.toFixed(1);
+    return warn ? `${v}!` : v;
+  };
 
   const sinceLabel = since
     ? new Date(since).toLocaleString("en-US", {
         month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
       })
     : null;
+  const parkedFor =
+    !driving && !charging ? formatSinceDuration(since) : null;
 
   const subtitle = [
     initial.model && `Model ${initial.model}`,
     initial.marketingName ?? trim,
     color,
     wheels,
+    spoiler && spoiler !== "None" ? spoiler : null,
   ].filter(Boolean).join(" · ");
+
+  const updateInProgress =
+    updateAvail === true &&
+    ((downloadPerc !== null && downloadPerc < 100) || (installPerc !== null && installPerc > 0 && installPerc < 100));
 
   return (
     <section className="glass-panel overflow-hidden">
@@ -180,7 +242,12 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
             </div>
             <div className="flex flex-col items-end gap-2">
               <StateBadge state={displayState} />
-              {sinceLabel && <p className="text-[11px] text-ink-2">since {sinceLabel}</p>}
+              {sinceLabel && (
+                <p className="text-[11px] text-ink-2">
+                  since {sinceLabel}
+                  {parkedFor ? ` · ${parkedFor}` : ""}
+                </p>
+              )}
             </div>
           </div>
 
@@ -233,17 +300,130 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
             {sentry === true && <Flag tone="warn">Sentry</Flag>}
             {climate === true && <Flag>Climate on</Flag>}
             {preconditioning === true && <Flag>Preconditioning</Flag>}
-            {windowsOpen === true && <Flag tone="warn">Windows open</Flag>}
-            {doorsOpen === true && <Flag tone="hot">Doors open</Flag>}
+            {windowsOpen === true && (
+              <Flag tone="warn">Windows open{windowDetail ? ` (${windowDetail})` : ""}</Flag>
+            )}
+            {doorsOpen === true && (
+              <Flag tone="hot">Doors open{doorDetail ? ` (${doorDetail})` : ""}</Flag>
+            )}
             {trunkOpen === true && <Flag tone="warn">Trunk open</Flag>}
             {frunkOpen === true && <Flag tone="warn">Frunk open</Flag>}
+            {sunRoofInstalled === true && sunRoofState && sunRoofState !== "closed" && sunRoofState !== "unknown" && (
+              <Flag tone="warn">
+                Sunroof {sunRoofState}{sunRoofPct !== null ? ` ${Math.round(sunRoofPct)}%` : ""}
+              </Flag>
+            )}
             {occupied === true && <Flag>Occupied</Flag>}
             {chargePortOpen === true && <Flag>Charge port open</Flag>}
             {shiftState && shiftState !== "P" && <Flag tone="hot">Gear {shiftState}</Flag>}
-            {updateAvail === true && <Flag tone="warn">{updateVersion ? `Update ${updateVersion}` : "Update available"}</Flag>}
+            {serviceMode === true && <Flag tone="hot">Service mode</Flag>}
+            {centerDisplay !== null && centerDisplay > 0 && !driving && <Flag>Display on</Flag>}
+            {anyTpmsWarn && <Flag tone="hot">TPMS soft warning</Flag>}
+            {updateAvail === true && (
+              <Flag tone="warn">{updateVersion ? `Update ${updateVersion}` : "Update available"}</Flag>
+            )}
             {healthy === false && <Flag tone="hot">Logger unhealthy</Flag>}
             {!connected && <Flag tone="warn">Live offline</Flag>}
           </div>
+
+          {route && (
+            <div className="mt-6 rounded-2xl border border-line bg-[color-mix(in_oklab,var(--state-driving)_8%,var(--panel-2))] p-4">
+              <p className="text-[11px] uppercase tracking-[0.16em]" style={{ color: "var(--state-driving)" }}>
+                Navigation
+              </p>
+              <p className="mt-1 font-[family-name:var(--font-cond)] text-xl font-semibold tracking-tight">
+                {route.destination ?? "Destination"}
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <Tile
+                  label="ETA"
+                  value={
+                    route.minutesToArrival === null
+                      ? "–"
+                      : formatDuration(route.minutesToArrival)
+                  }
+                  hint={
+                    route.trafficMinutesDelay && route.trafficMinutesDelay > 0.5
+                      ? `+${Math.round(route.trafficMinutesDelay)} min traffic`
+                      : undefined
+                  }
+                />
+                <Tile
+                  label="Distance"
+                  value={
+                    route.milesToArrival === null
+                      ? "–"
+                      : formatDistance(route.milesToArrival * KM_PER_MI, settings.unitOfLength, 1)
+                  }
+                />
+                <Tile
+                  label="Arrival SoC"
+                  value={route.energyAtArrival === null ? "–" : formatPct(route.energyAtArrival)}
+                />
+                <Tile
+                  label="Arrive with"
+                  value={
+                    route.energyAtArrival === null || rangeKm === null || (usable ?? soc) === null
+                      ? "–"
+                      : formatDistance(
+                          ((rangeKm / Math.max(usable ?? soc ?? 1, 1)) * route.energyAtArrival),
+                          settings.unitOfLength,
+                          0,
+                        )
+                  }
+                  hint="approx. from current range"
+                />
+              </div>
+            </div>
+          )}
+
+          {scheduledCharge && !charging && (
+            <div className="mt-6 rounded-2xl border border-line bg-panel-2 p-4">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-ink-2">Scheduled charge</p>
+              <p className="mt-1 font-[family-name:var(--font-cond)] text-lg font-semibold">
+                {new Date(scheduledCharge).toLocaleString("en-US", {
+                  weekday: "short", month: "short", day: "numeric",
+                  hour: "2-digit", minute: "2-digit", hour12: false,
+                })}
+              </p>
+            </div>
+          )}
+
+          {updateInProgress && (
+            <div className="mt-6 rounded-2xl border border-line bg-[color-mix(in_oklab,var(--state-updating)_10%,var(--panel-2))] p-4">
+              <p className="text-[11px] uppercase tracking-[0.16em]" style={{ color: "var(--state-updating)" }}>
+                Software update{updateVersion ? ` · ${updateVersion}` : ""}
+              </p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {downloadPerc !== null && (
+                  <div>
+                    <div className="mb-1 flex justify-between text-xs text-ink-2">
+                      <span>Download</span><span>{Math.round(downloadPerc)}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-[color-mix(in_oklab,var(--ink)_10%,transparent)]">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${Math.min(100, downloadPerc)}%`, background: "var(--state-updating)" }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {installPerc !== null && installPerc > 0 && (
+                  <div>
+                    <div className="mb-1 flex justify-between text-xs text-ink-2">
+                      <span>Install</span><span>{Math.round(installPerc)}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-[color-mix(in_oklab,var(--ink)_10%,transparent)]">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${Math.min(100, installPerc)}%`, background: "var(--state-updating)" }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {charging && (
             <div className="mt-6 rounded-2xl border border-line bg-[color-mix(in_oklab,var(--state-charging)_8%,var(--panel-2))] p-4">
@@ -333,11 +513,11 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
           <p className="text-[11px] uppercase tracking-[0.14em] text-ink-2">
             TPMS{hasTpms ? ` (${settings.unitOfPressure})` : ""}
           </p>
-          <p className="mt-1 font-[family-name:var(--font-cond)] text-sm font-semibold leading-snug">
+          <p className={`mt-1 font-[family-name:var(--font-cond)] text-sm font-semibold leading-snug ${anyTpmsWarn ? "text-[color:var(--accent)]" : ""}`}>
             {hasTpms ? (
               <>
-                <span className="block">FL {tyre(tpms.fl)} · FR {tyre(tpms.fr)}</span>
-                <span className="block">RL {tyre(tpms.rl)} · RR {tyre(tpms.rr)}</span>
+                <span className="block">FL {tyre(tpms.fl, tpmsWarn.fl)} · FR {tyre(tpms.fr, tpmsWarn.fr)}</span>
+                <span className="block">RL {tyre(tpms.rl, tpmsWarn.rl)} · RR {tyre(tpms.rr, tpmsWarn.rr)}</span>
               </>
             ) : (
               "–"

@@ -1,8 +1,10 @@
 # A Better TeslaMate Frontend
 
 Tesla-inspired companion dashboard for [TeslaMate](https://github.com/teslamate-org/teslamate):
-live car status over MQTT, drive and charge history, and stats — read-only against
-TeslaMate's Postgres. TeslaMate itself is untouched.
+live car status over MQTT (including navigation, scheduled charge, TPMS, per-door
+flags), drive and charge history with richer detail, stats (multi-car, charge spend),
+timeline, places, and software updates — read-only against TeslaMate's Postgres.
+TeslaMate itself is untouched.
 
 **No auth built in.** Run behind your own reverse proxy / ingress on a trusted network.
 
@@ -11,7 +13,7 @@ TeslaMate's Postgres. TeslaMate itself is untouched.
 Prefer a **release tag** (semver). Every main build also gets an immutable `sha-<short>` tag. No floating `latest`.
 
 ```bash
-IMG=ghcr.io/jmcglock/a-better-teslamate-frontend:1.0.1
+IMG=ghcr.io/jmcglock/a-better-teslamate-frontend:1.1.0
 # or pin a build: ...:sha-<short> from Packages / Actions
 
 docker pull "$IMG"
@@ -29,7 +31,17 @@ docker compose up -d
 ```
 
 Image: `ghcr.io/jmcglock/a-better-teslamate-frontend`  
-Tags: `1.0.1` / `v1.0.1` on releases; `sha-<short>` on every main build.
+Tags: `1.1.0` / `v1.1.0` on releases; `sha-<short>` on every main build.
+
+## What's in 1.1
+
+- **Faster first load**: warm Postgres pool, settings + stats TTL cache, lazy MapLibre, route loading skeletons, `/api/health` for probes
+- **Live vehicle**: active navigation, scheduled charge, update download/install progress, per-door/window, sunroof, TPMS soft warnings, service mode, parked duration
+- **Home activity**: today / this week totals, last drive + last charge
+- **Drive detail**: peak power / regen, ascent & descent, cabin temp, rated range, power + elevation charts
+- **Charge detail**: wall energy & session efficiency, $/kWh, AC/DC, range gained, outside temp, location map
+- **New pages**: Timeline (states), Places (charge/drive locations + geofences), Updates (software history)
+- **Stats**: multi-car selector, monthly charge cost / energy
 
 ## Configuration
 

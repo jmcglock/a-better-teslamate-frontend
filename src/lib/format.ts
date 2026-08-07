@@ -73,3 +73,32 @@ export function formatPressure(bar: number | null, unit: PressureUnit): string {
 export function formatCost(v: number | null, symbol = "$"): string {
   return v === null ? DASH : `${symbol}${v.toFixed(2)}`;
 }
+
+/** Cost per kWh when both cost and energy are known. */
+export function formatCostPerKwh(cost: number | null, kwh: number | null, symbol = "$"): string {
+  if (cost === null || kwh === null || kwh <= 0) return DASH;
+  return `${symbol}${(cost / kwh).toFixed(3)}/kWh`;
+}
+
+/**
+ * Human duration from an ISO timestamp until now (e.g. parked since).
+ * Returns null when the timestamp is missing or in the future.
+ */
+export function formatSinceDuration(fromIso: string | null | undefined): string | null {
+  if (!fromIso) return null;
+  const ms = Date.now() - new Date(fromIso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  const min = Math.floor(ms / 60_000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 48) return `${h} h ${String(min % 60).padStart(2, "0")} min`;
+  const d = Math.floor(h / 24);
+  return `${d} d ${h % 24} h`;
+}
+
+export function formatElevation(m: number | null, unit: LengthUnit): string {
+  if (m === null) return DASH;
+  if (unit === "mi") return `${Math.round(m * 3.28084)} ft`;
+  return `${Math.round(m)} m`;
+}

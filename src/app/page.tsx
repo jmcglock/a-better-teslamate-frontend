@@ -1,5 +1,7 @@
+import ActivityStrip from "@/components/ActivityStrip";
 import CarCard from "@/components/CarCard";
 import DataUnavailable from "@/components/DataUnavailable";
+import { getDashboardActivity } from "@/lib/db/activity";
 import { listCarCards } from "@/lib/db/cars";
 import { getSettings } from "@/lib/db/settings";
 import { safe } from "@/lib/db/pool";
@@ -15,6 +17,10 @@ export default async function DashboardPage() {
     return <DataUnavailable service="database" detail="No cars found. Sign in to TeslaMate first." />;
   }
 
+  const activityRes = await safe(getDashboardActivity(cars.map((c) => c.id)));
+  const activity = activityRes.ok ? activityRes.data : {};
+  const currency = process.env.CURRENCY ?? "$";
+
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-4">
@@ -28,7 +34,12 @@ export default async function DashboardPage() {
       </div>
       <div className="grid gap-6">
         {cars.map((car) => (
-          <CarCard key={car.id} initial={car} settings={settings} />
+          <div key={car.id} className="space-y-4">
+            <CarCard initial={car} settings={settings} />
+            {activity[car.id] && (
+              <ActivityStrip activity={activity[car.id]} settings={settings} currency={currency} />
+            )}
+          </div>
         ))}
       </div>
     </div>

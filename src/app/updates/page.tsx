@@ -1,0 +1,53 @@
+import Link from "next/link";
+import DataUnavailable from "@/components/DataUnavailable";
+import { listUpdates } from "@/lib/db/updates";
+import { safe } from "@/lib/db/pool";
+import { formatDuration } from "@/lib/format";
+
+export const dynamic = "force-dynamic";
+
+export default async function UpdatesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const page = Math.max(1, Number((await searchParams).page) || 1);
+  const res = await safe(listUpdates(page));
+  if (!res.ok) return <DataUnavailable service="database" detail={res.error} />;
+  const { items, hasMore } = res.data;
+
+  return (
+    <div>
+      <h1 className="mb-1 font-[family-name:var(--font-cond)] text-2xl font-semibold tracking-tight">
+        Updates
+      </h1>
+      <p className="mb-4 text-sm text-ink-2">Software install history logged by TeslaMate.</p>
+      {items.length === 0 ? (
+        <p className="text-ink-2">No software updates recorded.</p>
+      ) : (
+        <ul className="divide-y divide-line rounded-2xl border border-line bg-panel">
+          {items.map((u) => (
+            <li key={u.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3">
+              <span className="w-40 font-[family-name:var(--font-mono)] text-xs text-ink-2">
+                {new Date(u.startDate).toLocaleString("en-US", {
+                  month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+                })}
+              </span>
+              <span className="min-w-0 flex-1 font-[family-name:var(--font-cond)] text-sm font-semibold tracking-tight">
+                {u.version}
+              </span>
+              <span className="text-sm text-ink-2">{u.carName}</span>
+              <span className="text-sm text-ink-2">
+                {u.durationMin === null ? "in progress" : formatDuration(u.durationMin)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <nav className="mt-4 flex gap-3 text-sm">
+        {page > 1 && <Link className="text-ink-2 hover:text-ink" href={`/updates?page=${page - 1}`}>← Newer</Link>}
+        {hasMore && <Link className="text-ink-2 hover:text-ink" href={`/updates?page=${page + 1}`}>Older →</Link>}
+      </nav>
+    </div>
+  );
+}

@@ -8,6 +8,9 @@ const links = [
   { href: "/drives", label: "Drives" },
   { href: "/charges", label: "Charges" },
   { href: "/stats", label: "Stats" },
+  { href: "/timeline", label: "Timeline" },
+  { href: "/places", label: "Places" },
+  { href: "/updates", label: "Updates" },
 ];
 
 export default function Nav() {
@@ -15,7 +18,7 @@ export default function Nav() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-[color-mix(in_oklab,var(--bg)_88%,transparent)] backdrop-blur-xl">
       <nav className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-3 sm:px-6 lg:px-8">
-        <Link href="/" className="mr-3 flex min-w-0 items-center gap-2.5 leading-tight">
+        <Link href="/" prefetch className="mr-3 flex min-w-0 items-center gap-2.5 leading-tight">
           {/* logo is black strokes; invert on dark scheme */}
           <img
             src="/logo.png"
@@ -31,14 +34,15 @@ export default function Nav() {
             <span className="truncate text-[10px] uppercase tracking-[0.22em] text-ink-2">Dashboard</span>
           </span>
         </Link>
-        <div className="ml-auto flex items-center gap-1 sm:ml-0 sm:gap-1.5">
+        <div className="ml-auto flex max-w-[min(100%,42rem)] items-center gap-1 overflow-x-auto sm:ml-0 sm:gap-1.5">
           {links.map(({ href, label }) => {
             const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (
               <Link
                 key={href}
                 href={href}
-                className={`rounded-full px-3 py-1.5 text-sm transition-colors ${
+                prefetch
+                className={`shrink-0 rounded-full px-2.5 py-1.5 text-sm transition-colors sm:px-3 ${
                   active
                     ? "bg-accent text-white"
                     : "text-ink-2 hover:bg-[color-mix(in_oklab,var(--ink)_8%,transparent)] hover:text-ink"

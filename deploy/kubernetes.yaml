@@ -39,7 +39,7 @@ spec:
       containers:
         - name: teslamate-frontend
           # Pin release or sha tag from GHCR (immutable).
-          image: ghcr.io/jmcglock/a-better-teslamate-frontend:1.0.1
+          image: ghcr.io/jmcglock/a-better-teslamate-frontend:1.1.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -58,19 +58,19 @@ spec:
                   key: DATABASE_URL
           livenessProbe:
             httpGet:
-              path: /
+              path: /api/health
               port: http
             initialDelaySeconds: 15
             periodSeconds: 30
           readinessProbe:
             httpGet:
-              path: /
+              path: /api/health
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:
             requests:
-              cpu: 25m
+              cpu: 50m
               memory: 256Mi
             limits:
               memory: 512Mi

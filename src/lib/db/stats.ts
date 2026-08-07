@@ -1,5 +1,8 @@
+import { cached } from "@/lib/cache";
 import { num } from "@/lib/format";
 import { q } from "./pool";
+
+const STATS_TTL_MS = 5 * 60_000;
 
 export function drainPctPerDay(socStart: number, socEnd: number, hours: number): number | null {
   if (hours < 6) return null;
@@ -15,48 +18,104 @@ export function monthLabel(d: Date): string {
 type MonthRow = { month: Date; v: string | number | null };
 
 export async function getMonthlyMileage(carId: number): Promise<{ label: string; v: number }[]> {
-  const rows = await q<MonthRow>(`
-    SELECT date_trunc('month', start_date) AS month, sum(distance) AS v
-    FROM drives WHERE car_id = $1 AND distance > 0.1
-    GROUP BY 1 ORDER BY 1 DESC LIMIT 12
-  `, [carId]);
-  return rows.reverse().map((r) => ({ label: monthLabel(r.month), v: num(r.v) ?? 0 }));
+  return cached(`mileage:${carId}`, STATS_TTL_MS, async () => {
+    const rows = await q<MonthRow>(`
+      SELECT date_trunc('month', start_date) AS month, sum(distance) AS v
+      FROM drives WHERE car_id = $1 AND distance > 0.1
+      GROUP BY 1 ORDER BY 1 DESC LIMIT 12
+    `, [carId]);
+    return rows.reverse().map((r) => ({ label: monthLabel(r.month), v: num(r.v) ?? 0 }));
+  });
 }
 
 export async function getMonthlyEfficiency(carId: number): Promise<{ label: string; v: number }[]> {
-  const rows = await q<MonthRow>(`
-    SELECT date_trunc('month', d.start_date) AS month,
-           sum((d.start_rated_range_km - d.end_rated_range_km) * c.efficiency) * 1000 / nullif(sum(d.distance), 0) AS v
-    FROM drives d JOIN cars c ON c.id = d.car_id
-    WHERE d.car_id = $1 AND d.distance > 0.1 AND d.start_rated_range_km IS NOT NULL AND d.end_rated_range_km IS NOT NULL
-    GROUP BY 1 ORDER BY 1 DESC LIMIT 12
-  `, [carId]);
-  return rows.reverse().flatMap((r) => {
-    const v = num(r.v);
-    return v === null || v <= 0 ? [] : [{ label: monthLabel(r.month), v }];
+  return cached(`efficiency:${carId}`, STATS_TTL_MS, async () => {
+    const rows = await q<MonthRow>(`
+      SELECT date_trunc('month', d.start_date) AS month,
+             sum((d.start_rated_range_km - d.end_rated_range_km) * c.efficiency) * 1000 / nullif(sum(d.distance), 0) AS v
+      FROM drives d JOIN cars c ON c.id = d.car_id
+      WHERE d.car_id = $1 AND d.distance > 0.1 AND d.start_rated_range_km IS NOT NULL AND d.end_rated_range_km IS NOT NULL
+      GROUP BY 1 ORDER BY 1 DESC LIMIT 12
+    `, [carId]);
+    return rows.reverse().flatMap((r) => {
+      const v = num(r.v);
+      return v === null || v <= 0 ? [] : [{ label: monthLabel(r.month), v }];
+    });
   });
 }
 
 /** Projected full-pack rated range (km) by month — battery health proxy. */
 export async function getBatteryHealth(carId: number): Promise<{ t: number; v: number | null }[]> {
-  const rows = await q<MonthRow>(`
-    SELECT date_trunc('month', cp.start_date) AS month,
-           max(cp.end_rated_range_km / nullif(cp.end_battery_level, 0) * 100) AS v
-    FROM charging_processes cp
-    WHERE cp.car_id = $1 AND cp.end_battery_level >= 50 AND cp.end_rated_range_km IS NOT NULL
-    GROUP BY 1 ORDER BY 1 DESC LIMIT 24
-  `, [carId]);
-  return rows.reverse().map((r) => ({ t: r.month.getTime(), v: num(r.v) }));
+  return cached(`health:${carId}`, STATS_TTL_MS, async () => {
+    const rows = await q<MonthRow>(`
+      SELECT date_trunc('month', cp.start_date) AS month,
+             max(cp.end_rated_range_km / nullif(cp.end_battery_level, 0) * 100) AS v
+      FROM charging_processes cp
+      WHERE cp.car_id = $1 AND cp.end_battery_level >= 50 AND cp.end_rated_range_km IS NOT NULL
+      GROUP BY 1 ORDER BY 1 DESC LIMIT 24
+    `, [carId]);
+    return rows.reverse().map((r) => ({ t: r.month.getTime(), v: num(r.v) }));
+  });
+}
+
+type CostMonthRow = {
+  month: Date;
+  cost: string | number | null;
+  energy: string | number | null;
+};
+
+export type MonthlyCost = { label: string; cost: number; energyKwh: number };
+
+/** Monthly charge cost + energy for spend summary. */
+export async function getMonthlyChargeCost(carId: number): Promise<MonthlyCost[]> {
+  return cached(`chargeCost:${carId}`, STATS_TTL_MS, async () => {
+    const rows = await q<CostMonthRow>(`
+      SELECT date_trunc('month', start_date) AS month,
+             sum(cost) AS cost,
+             sum(charge_energy_added) AS energy
+      FROM charging_processes
+      WHERE car_id = $1 AND charge_energy_added > 0.1
+      GROUP BY 1 ORDER BY 1 DESC LIMIT 12
+    `, [carId]);
+    return rows.reverse().map((r) => ({
+      label: monthLabel(r.month),
+      cost: num(r.cost) ?? 0,
+      energyKwh: num(r.energy) ?? 0,
+    }));
+  });
 }
 
 type CarIdentityRow = {
   id: number;
+  name: string | null;
   model: string | null;
   marketing_name: string | null;
   trim_badging: string | null;
   vin: string | null;
   efficiency: string | number | null;
 };
+
+export type CarIdentity = {
+  id: number;
+  name: string;
+  model: string | null;
+  marketingName: string | null;
+  trimBadging: string | null;
+  vin: string | null;
+  efficiency: number | null;
+};
+
+function mapCarIdentity(r: CarIdentityRow): CarIdentity {
+  return {
+    id: r.id,
+    name: r.name ?? `Car ${r.id}`,
+    model: r.model,
+    marketingName: r.marketing_name,
+    trimBadging: r.trim_badging,
+    vin: r.vin,
+    efficiency: num(r.efficiency),
+  };
+}
 
 /**
  * New-car EPA rated range (km) from model/trim/VIN year.
@@ -108,30 +167,26 @@ export function newCarRatedRangeKm(car: {
   return null;
 }
 
-export async function getPrimaryCarIdentity(): Promise<{
-  id: number;
-  model: string | null;
-  marketingName: string | null;
-  trimBadging: string | null;
-  vin: string | null;
-  efficiency: number | null;
-} | null> {
+export async function listCarIdentities(): Promise<CarIdentity[]> {
   const rows = await q<CarIdentityRow>(`
-    SELECT id, model, marketing_name, trim_badging, vin, efficiency
+    SELECT id, name, model, marketing_name, trim_badging, vin, efficiency
     FROM cars
     ORDER BY display_priority NULLS LAST, id
-    LIMIT 1
   `);
-  const r = rows[0];
-  if (!r) return null;
-  return {
-    id: r.id,
-    model: r.model,
-    marketingName: r.marketing_name,
-    trimBadging: r.trim_badging,
-    vin: r.vin,
-    efficiency: num(r.efficiency),
-  };
+  return rows.map(mapCarIdentity);
+}
+
+export async function getCarIdentity(carId: number): Promise<CarIdentity | null> {
+  const rows = await q<CarIdentityRow>(`
+    SELECT id, name, model, marketing_name, trim_badging, vin, efficiency
+    FROM cars WHERE id = $1
+  `, [carId]);
+  return rows[0] ? mapCarIdentity(rows[0]) : null;
+}
+
+export async function getPrimaryCarIdentity(): Promise<CarIdentity | null> {
+  const cars = await listCarIdentities();
+  return cars[0] ?? null;
 }
 
 export type BatteryHealthSummary = {
@@ -181,42 +236,44 @@ export function summarizeBatteryHealth(
 type DrainRow = { end_date: Date; soc_start: number | null; soc_end: number | null; hours: string | number | null };
 
 export async function getVampireDrain(carId: number): Promise<{ label: string; v: number }[]> {
-  // Cap lookback tightly — this window scan is expensive and was blowing the tiny Postgres pool.
-  const rows = await q<DrainRow>(`
-    WITH d AS (
-      SELECT car_id, end_date, end_position_id,
-             lead(start_date) OVER w AS next_start,
-             lead(start_position_id) OVER w AS next_start_pos
-      FROM drives
-      WHERE car_id = $1 AND start_date > now() - interval '18 months'
-      WINDOW w AS (PARTITION BY car_id ORDER BY start_date)
-    )
-    SELECT d.end_date, p1.battery_level AS soc_start, p2.battery_level AS soc_end,
-           extract(epoch FROM (d.next_start - d.end_date)) / 3600 AS hours
-    FROM d
-    JOIN positions p1 ON p1.id = d.end_position_id
-    JOIN positions p2 ON p2.id = d.next_start_pos
-    WHERE d.next_start - d.end_date > interval '6 hours'
-      AND d.next_start - d.end_date < interval '14 days'
-      AND NOT EXISTS (
-        SELECT 1 FROM charging_processes cp
-        WHERE cp.car_id = d.car_id AND cp.start_date BETWEEN d.end_date AND d.next_start
+  return cached(`drain:${carId}`, STATS_TTL_MS, async () => {
+    // Cap lookback tightly — this window scan is expensive and was blowing the tiny Postgres pool.
+    const rows = await q<DrainRow>(`
+      WITH d AS (
+        SELECT car_id, end_date, end_position_id,
+               lead(start_date) OVER w AS next_start,
+               lead(start_position_id) OVER w AS next_start_pos
+        FROM drives
+        WHERE car_id = $1 AND start_date > now() - interval '18 months'
+        WINDOW w AS (PARTITION BY car_id ORDER BY start_date)
       )
-    ORDER BY d.end_date DESC LIMIT 200
-  `, [carId]);
+      SELECT d.end_date, p1.battery_level AS soc_start, p2.battery_level AS soc_end,
+             extract(epoch FROM (d.next_start - d.end_date)) / 3600 AS hours
+      FROM d
+      JOIN positions p1 ON p1.id = d.end_position_id
+      JOIN positions p2 ON p2.id = d.next_start_pos
+      WHERE d.next_start - d.end_date > interval '6 hours'
+        AND d.next_start - d.end_date < interval '14 days'
+        AND NOT EXISTS (
+          SELECT 1 FROM charging_processes cp
+          WHERE cp.car_id = d.car_id AND cp.start_date BETWEEN d.end_date AND d.next_start
+        )
+      ORDER BY d.end_date DESC LIMIT 200
+    `, [carId]);
 
-  const byMonth = new Map<string, { sum: number; n: number; date: Date }>();
-  for (const r of rows) {
-    const hours = num(r.hours);
-    if (r.soc_start === null || r.soc_end === null || hours === null) continue;
-    const drain = drainPctPerDay(r.soc_start, r.soc_end, hours);
-    if (drain === null) continue;
-    const key = `${r.end_date.getUTCFullYear()}-${r.end_date.getUTCMonth()}`;
-    const cur = byMonth.get(key) ?? { sum: 0, n: 0, date: r.end_date };
-    byMonth.set(key, { sum: cur.sum + drain, n: cur.n + 1, date: cur.date });
-  }
-  return [...byMonth.values()]
-    .sort((a, b) => a.date.getTime() - b.date.getTime())
-    .slice(-12)
-    .map((m) => ({ label: monthLabel(m.date), v: m.sum / m.n }));
+    const byMonth = new Map<string, { sum: number; n: number; date: Date }>();
+    for (const r of rows) {
+      const hours = num(r.hours);
+      if (r.soc_start === null || r.soc_end === null || hours === null) continue;
+      const drain = drainPctPerDay(r.soc_start, r.soc_end, hours);
+      if (drain === null) continue;
+      const key = `${r.end_date.getUTCFullYear()}-${r.end_date.getUTCMonth()}`;
+      const cur = byMonth.get(key) ?? { sum: 0, n: 0, date: r.end_date };
+      byMonth.set(key, { sum: cur.sum + drain, n: cur.n + 1, date: cur.date });
+    }
+    return [...byMonth.values()]
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
+      .slice(-12)
+      .map((m) => ({ label: monthLabel(m.date), v: m.sum / m.n }));
+  });
 }

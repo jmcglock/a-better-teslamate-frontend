@@ -6,13 +6,15 @@ import { useChartColors } from "./useChartColors";
 import { formatDistance, kmToUnit, type LengthUnit } from "@/lib/format";
 
 export default function StatsCharts({
-  unit, mileage, efficiency, health, drain, healthSummary,
+  unit, mileage, efficiency, health, drain, healthSummary, chargeCost, currency = "$",
 }: {
   unit: LengthUnit;
   mileage: { label: string; v: number }[];
   efficiency: { label: string; v: number }[];
   health: { t: number; v: number | null }[];
   drain: { label: string; v: number }[];
+  chargeCost?: { label: string; cost: number; energyKwh: number }[];
+  currency?: string;
   healthSummary: {
     currentKm: number | null;
     peakKm: number | null;
@@ -29,6 +31,9 @@ export default function StatsCharts({
   const effUnit = unit === "mi" ? "Wh/mi" : "Wh/km";
   const toUnit = (km: number) => Math.round(kmToUnit(km, unit));
   const fmtKwh = (v: number | null) => (v === null ? "–" : `${v.toFixed(1)} kWh`);
+
+  const totalCost = chargeCost?.reduce((s, m) => s + m.cost, 0) ?? 0;
+  const totalEnergy = chargeCost?.reduce((s, m) => s + m.energyKwh, 0) ?? 0;
 
   return (
     <div className="space-y-4">
@@ -64,12 +69,12 @@ export default function StatsCharts({
           <p className="mt-1 text-xs text-ink-2">projected at 100% SoC</p>
         </div>
         <div className="rounded-2xl border border-line bg-panel p-5">
-          <p className="text-[11px] uppercase tracking-[0.16em] text-ink-2">New rated range</p>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-ink-2">Charge spend (12 mo)</p>
           <p className="mt-2 font-[family-name:var(--font-cond)] text-4xl font-semibold tracking-tight">
-            {formatDistance(healthSummary.newKm ?? healthSummary.peakKm, unit, 0)}
+            {currency}{totalCost.toFixed(0)}
           </p>
           <p className="mt-1 text-xs text-ink-2">
-            {healthSummary.newKm !== null ? "EPA baseline for this config" : "peak observed (fallback)"}
+            {totalEnergy > 0 ? `${totalEnergy.toFixed(0)} kWh charged` : "no cost data"}
           </p>
         </div>
       </div>
@@ -94,6 +99,20 @@ export default function StatsCharts({
           data={drain.map((d) => ({ label: d.label, v: Number(d.v.toFixed(2)) }))}
           formatValue={(v) => `${v.toFixed(2)} %/day`}
         />
+        {chargeCost && chargeCost.length > 0 && (
+          <BarPanel
+            title="Charge cost" unit={currency} color={c.orange}
+            data={chargeCost.map((m) => ({ label: m.label, v: Number(m.cost.toFixed(2)) }))}
+            formatValue={(v) => `${currency}${v.toFixed(0)}`}
+          />
+        )}
+        {chargeCost && chargeCost.length > 0 && (
+          <BarPanel
+            title="Energy charged" unit="kWh" color={c.green}
+            data={chargeCost.map((m) => ({ label: m.label, v: Number(m.energyKwh.toFixed(1)) }))}
+            formatValue={(v) => `${v.toFixed(0)} kWh`}
+          />
+        )}
       </div>
     </div>
   );

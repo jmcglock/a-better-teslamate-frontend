@@ -15,18 +15,23 @@ export default async function ChargesPage({ searchParams }: { searchParams: Prom
 
   return (
     <div>
-      <h1 className="mb-4 text-xl font-semibold">Charges</h1>
+      <h1 className="mb-4 font-[family-name:var(--font-cond)] text-2xl font-semibold tracking-tight">Charges</h1>
       {charges.length === 0 ? (
         <p className="text-ink-2">No charging sessions on this page.</p>
       ) : (
-        <ul className="divide-y divide-line rounded-lg border border-line bg-panel">
+        <ul className="divide-y divide-line rounded-2xl border border-line bg-panel">
           {charges.map((c) => (
             <li key={c.id}>
               <Link href={`/charges/${c.id}`} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3 hover:bg-[color-mix(in_oklab,var(--ink)_5%,transparent)]">
                 <span className="w-40 font-[family-name:var(--font-mono)] text-xs text-ink-2">
                   {new Date(c.startDate).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-sm">{c.location}</span>
+                <span className="min-w-0 flex-1 truncate text-sm">
+                  {c.location}
+                  {c.chargeKind ? (
+                    <span className="ml-2 text-xs text-ink-2">{c.chargeKind}</span>
+                  ) : null}
+                </span>
                 <span className="text-sm">{formatEnergy(c.energyAddedKwh)}</span>
                 <span className="text-sm text-ink-2">{formatPct(c.socStart)} → {formatPct(c.socEnd)}</span>
                 <span className="text-sm text-ink-2">{formatDuration(c.durationMin)}</span>
