@@ -1,11 +1,15 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
+/**
+ * View Transitions are supported at runtime in Next 16, but ExperimentalConfig
+ * types in some installs omit `viewTransition` and fail Docker `tsc` checks.
+ * Cast keeps the experiment without blocking the image build.
+ */
+const nextConfig = {
   output: "standalone",
   experimental: {
-    // Soft fade between App Router navigations (CSS in globals.css).
     viewTransition: true,
   },
-};
+} as NextConfig;
 
 export default nextConfig;
