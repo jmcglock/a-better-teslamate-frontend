@@ -19,6 +19,10 @@
   --chart-green: #12c96a;
   --chart-orange: #f5a524;
   --chart-violet: #a78bfa;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 150ms;
+  --dur: 280ms;
+  --dur-slow: 480ms;
   color-scheme: dark;
 }
 
@@ -48,11 +52,15 @@
 /* Black line-art logo → light ink on dark UI */
 .brand-logo {
   filter: invert(1);
+  transition: transform var(--dur) var(--ease-out);
 }
 @media (prefers-color-scheme: light) {
   .brand-logo {
     filter: none;
   }
+}
+a:hover .brand-logo {
+  transform: scale(1.04);
 }
 
 @theme inline {
@@ -80,7 +88,66 @@ body {
   outline-offset: 2px;
 }
 
-/* Signature: battery bar */
+/* ── View Transitions (route changes) ── */
+@supports (view-transition-name: none) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 220ms;
+    animation-timing-function: var(--ease-out);
+  }
+  ::view-transition-old(root) {
+    animation-name: vt-fade-out;
+  }
+  ::view-transition-new(root) {
+    animation-name: vt-fade-in;
+  }
+}
+@keyframes vt-fade-out {
+  to { opacity: 0; }
+}
+@keyframes vt-fade-in {
+  from { opacity: 0; }
+}
+
+/* ── Page enter (template remount) ── */
+.page-enter {
+  animation: page-enter var(--dur-slow) var(--ease-out) both;
+}
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Pressable controls ── */
+.pressable {
+  transition:
+    background-color var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur) ease;
+}
+.pressable:active {
+  transform: scale(0.98);
+}
+
+/* ── Sticky nav scroll elevation ── */
+.site-header {
+  transition: box-shadow var(--dur) var(--ease-out), border-color var(--dur) ease;
+}
+.site-header.is-scrolled {
+  box-shadow:
+    0 1px 0 color-mix(in oklab, var(--ink) 6%, transparent),
+    0 8px 24px color-mix(in oklab, #000 18%, transparent);
+}
+
+/* ── Signature: battery bar ── */
 .battery-bar {
   position: relative;
   height: 12px;
@@ -92,7 +159,7 @@ body {
   height: 100%;
   border-radius: 999px;
   background: var(--state-idle);
-  transition: width 0.6s ease;
+  transition: width 0.6s var(--ease-out), background-color var(--dur) ease;
 }
 .battery-bar-fill[data-state="charging"] { background: var(--state-charging); }
 .battery-bar-fill[data-state="driving"] { background: var(--state-driving); }
@@ -118,20 +185,260 @@ body {
   background: var(--ink);
   opacity: 0.85;
   border-radius: 1px;
+  transition: left 0.5s var(--ease-out);
 }
 @keyframes shimmer {
   from { transform: translateX(-100%); }
   to { transform: translateX(100%); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .battery-bar-fill { transition: none; }
-  .battery-bar-fill[data-state="charging"]::after { animation: none; }
-}
 
-/* Subtle Tesla-style panel */
+/* ── Glass panel ── */
 .glass-panel {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 1.25rem;
   box-shadow: 0 1px 0 color-mix(in oklab, var(--ink) 4%, transparent);
+  transition:
+    box-shadow var(--dur) var(--ease-out),
+    border-color var(--dur) ease,
+    transform var(--dur) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .glass-panel:hover {
+    border-color: color-mix(in oklab, var(--ink) 12%, var(--line));
+    box-shadow:
+      0 1px 0 color-mix(in oklab, var(--ink) 4%, transparent),
+      0 12px 32px color-mix(in oklab, #000 14%, transparent);
+  }
+}
+
+/* ── List rows ── */
+.list-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+  padding: 0.75rem 1rem;
+  transition:
+    background-color var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out);
+}
+.list-row:hover {
+  background: color-mix(in oklab, var(--ink) 5%, transparent);
+}
+.list-row .list-row-chevron {
+  margin-left: auto;
+  opacity: 0;
+  transform: translateX(-4px);
+  color: var(--ink-2);
+  transition: opacity var(--dur-fast) ease, transform var(--dur-fast) var(--ease-out);
+}
+.list-row:hover .list-row-chevron {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ── Flag / badge enter ── */
+.flag-enter {
+  animation: flag-in var(--dur) var(--ease-out) both;
+}
+@keyframes flag-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ── State badge live pulse ── */
+.state-dot {
+  position: relative;
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.state-dot.is-live::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  background: inherit;
+  opacity: 0.45;
+  animation: live-breathe 2.2s var(--ease-out) infinite;
+}
+@keyframes live-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.35; }
+  50% { transform: scale(1.75); opacity: 0; }
+}
+
+/* ── Charging power glow ── */
+.charge-glow {
+  animation: charge-glow 2s ease-in-out infinite;
+}
+@keyframes charge-glow {
+  0%, 100% { filter: drop-shadow(0 0 0 transparent); opacity: 1; }
+  50% { filter: drop-shadow(0 0 10px color-mix(in oklab, var(--state-charging) 55%, transparent)); opacity: 0.92; }
+}
+
+/* ── Expandable live panels ── */
+.panel-expand {
+  animation: panel-expand var(--dur-slow) var(--ease-out) both;
+  overflow: hidden;
+}
+@keyframes panel-expand {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 40rem;
+  }
+}
+
+/* ── Animated number crossfade ── */
+.anim-num {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  transition: opacity var(--dur-fast) ease, transform var(--dur-fast) var(--ease-out);
+}
+.anim-num.is-flipping {
+  opacity: 0.35;
+  transform: translateY(2px);
+}
+
+/* ── Progress bars ── */
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.5s var(--ease-out);
+}
+
+/* ── Live map ring ── */
+.map-live-ring {
+  position: relative;
+  border-radius: 1rem;
+}
+.map-live-ring.is-live::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 1.5px solid color-mix(in oklab, var(--state-driving) 55%, transparent);
+  animation: map-ring 2.8s var(--ease-out) infinite;
+  z-index: 1;
+}
+@keyframes map-ring {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.15; transform: scale(1.01); }
+}
+
+/* ── Empty state ── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 1rem;
+  border: 1px dashed var(--line);
+  background: color-mix(in oklab, var(--panel) 80%, transparent);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  animation: page-enter var(--dur-slow) var(--ease-out) both;
+}
+.empty-state-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--ink) 6%, transparent);
+  color: var(--ink-2);
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+}
+
+/* ── Live reconnect toast ── */
+.live-toast {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  z-index: 50;
+  transform: translateX(-50%) translateY(120%);
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--state-charging) 40%, var(--line));
+  background: color-mix(in oklab, var(--panel) 92%, transparent);
+  backdrop-filter: blur(12px);
+  color: var(--ink);
+  padding: 0.55rem 1rem;
+  font-size: 0.8125rem;
+  box-shadow: 0 8px 28px color-mix(in oklab, #000 22%, transparent);
+  transition:
+    transform var(--dur) var(--ease-out),
+    opacity var(--dur) ease;
+}
+.live-toast.is-visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+.live-toast .toast-dot {
+  display: inline-block;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--state-charging);
+  margin-right: 0.45rem;
+  vertical-align: middle;
+}
+
+/* ── Chart stroke soft transition via SVG ── */
+.recharts-line-curve {
+  transition: stroke 0.35s ease;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .page-enter,
+  .flag-enter,
+  .panel-expand,
+  .live-toast,
+  .empty-state {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    max-height: none !important;
+  }
+  .battery-bar-fill { transition: none; }
+  .battery-bar-fill[data-state="charging"]::after { animation: none; }
+  .state-dot.is-live::after,
+  .map-live-ring.is-live::before,
+  .charge-glow {
+    animation: none !important;
+  }
+  .live-toast.is-visible {
+    transform: translateX(-50%) translateY(0);
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
 }

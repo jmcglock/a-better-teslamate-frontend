@@ -42,7 +42,16 @@ export default function TimeSeriesPanel({
             formatter={(v) => [fmt(Number(v)), title]}
             contentStyle={{ background: "var(--panel)", border: "1px solid var(--line)", borderRadius: 6, color: "var(--ink)" }}
           />
-          <Line type="monotone" dataKey="v" stroke={color} strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+          <Line
+            type="monotone"
+            dataKey="v"
+            stroke={color}
+            strokeWidth={2}
+            dot={false}
+            connectNulls
+            isAnimationActive={false}
+            style={{ transition: "stroke 0.35s ease" }}
+          />
         </LineChart>
       </ResponsiveContainer>
     </figure>

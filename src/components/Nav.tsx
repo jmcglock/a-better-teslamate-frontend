@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 const links = [
@@ -15,11 +16,23 @@ const links = [
 
 export default function Nav() {
   const pathname = usePathname();
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-[color-mix(in_oklab,var(--bg)_88%,transparent)] backdrop-blur-xl">
+    <header
+      className={`site-header sticky top-0 z-40 border-b border-line bg-[color-mix(in_oklab,var(--bg)_88%,transparent)] backdrop-blur-xl ${
+        scrolled ? "is-scrolled" : ""
+      }`}
+    >
       <nav className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-3 sm:px-6 lg:px-8">
-        <Link href="/" prefetch className="mr-3 flex min-w-0 items-center gap-2.5 leading-tight">
-          {/* logo is black strokes; invert on dark scheme */}
+        <Link href="/" prefetch className="pressable mr-3 flex min-w-0 items-center gap-2.5 leading-tight">
           <img
             src="/logo.png"
             alt=""
@@ -42,9 +55,9 @@ export default function Nav() {
                 key={href}
                 href={href}
                 prefetch
-                className={`shrink-0 rounded-full px-2.5 py-1.5 text-sm transition-colors sm:px-3 ${
+                className={`pressable shrink-0 rounded-full px-2.5 py-1.5 text-sm sm:px-3 ${
                   active
-                    ? "bg-accent text-white"
+                    ? "bg-accent text-white shadow-[0_0_0_1px_color-mix(in_oklab,var(--accent)_40%,transparent)]"
                     : "text-ink-2 hover:bg-[color-mix(in_oklab,var(--ink)_8%,transparent)] hover:text-ink"
                 }`}
               >

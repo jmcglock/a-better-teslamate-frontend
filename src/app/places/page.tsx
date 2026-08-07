@@ -1,4 +1,5 @@
 import DataUnavailable from "@/components/DataUnavailable";
+import EmptyState from "@/components/EmptyState";
 import { listGeofences, topChargePlaces, topDrivePlaces } from "@/lib/db/locations";
 import { getSettings } from "@/lib/db/settings";
 import { safe } from "@/lib/db/pool";
@@ -30,11 +31,11 @@ export default async function PlacesPage() {
           Top charge locations
         </h2>
         {charges.length === 0 ? (
-          <p className="text-sm text-ink-2">No charge locations yet.</p>
+          <EmptyState title="No charge locations yet" detail="Sessions will group by address or geofence." icon="⌁" />
         ) : (
-          <ul className="divide-y divide-line rounded-2xl border border-line bg-panel">
+          <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-panel">
             {charges.map((p) => (
-              <li key={p.location} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3">
+              <li key={p.location} className="list-row">
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.location}</span>
                 <span className="text-sm text-ink-2">{p.visits}×</span>
                 <span className="text-sm">{formatEnergy(p.energyKwh)}</span>
@@ -50,11 +51,11 @@ export default async function PlacesPage() {
           Frequent drive places
         </h2>
         {drives.length === 0 ? (
-          <p className="text-sm text-ink-2">No drive places yet.</p>
+          <EmptyState title="No drive places yet" detail="Start and end points will rank here over time." icon="◎" />
         ) : (
-          <ul className="divide-y divide-line rounded-2xl border border-line bg-panel">
+          <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-panel">
             {drives.map((p) => (
-              <li key={p.location} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3">
+              <li key={p.location} className="list-row">
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.location}</span>
                 <span className="text-sm text-ink-2">{p.visits}×</span>
                 <span className="text-sm">{formatDistance(p.distanceKm, settings.unitOfLength)}</span>
@@ -69,11 +70,11 @@ export default async function PlacesPage() {
           Geofences
         </h2>
         {geofences.length === 0 ? (
-          <p className="text-sm text-ink-2">No geofences configured in TeslaMate.</p>
+          <EmptyState title="No geofences" detail="Configure geofences in TeslaMate to name Home, Work, and chargers." icon="⌖" />
         ) : (
-          <ul className="divide-y divide-line rounded-2xl border border-line bg-panel">
+          <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-panel">
             {geofences.map((g) => (
-              <li key={g.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3">
+              <li key={g.id} className="list-row">
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{g.name}</span>
                 <span className="font-[family-name:var(--font-mono)] text-xs text-ink-2">
                   {g.latitude.toFixed(4)}, {g.longitude.toFixed(4)}

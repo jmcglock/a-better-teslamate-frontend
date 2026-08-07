@@ -1,5 +1,6 @@
 import Link from "next/link";
 import DataUnavailable from "@/components/DataUnavailable";
+import EmptyState from "@/components/EmptyState";
 import { listUpdates } from "@/lib/db/updates";
 import { safe } from "@/lib/db/pool";
 import { formatDuration } from "@/lib/format";
@@ -23,11 +24,11 @@ export default async function UpdatesPage({
       </h1>
       <p className="mb-4 text-sm text-ink-2">Software install history logged by TeslaMate.</p>
       {items.length === 0 ? (
-        <p className="text-ink-2">No software updates recorded.</p>
+        <EmptyState title="No software updates" detail="Install history from TeslaMate will show up here." icon="↑" />
       ) : (
-        <ul className="divide-y divide-line rounded-2xl border border-line bg-panel">
+        <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-panel">
           {items.map((u) => (
-            <li key={u.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3">
+            <li key={u.id} className="list-row">
               <span className="w-40 font-[family-name:var(--font-mono)] text-xs text-ink-2">
                 {new Date(u.startDate).toLocaleString("en-US", {
                   month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
@@ -45,8 +46,8 @@ export default async function UpdatesPage({
         </ul>
       )}
       <nav className="mt-4 flex gap-3 text-sm">
-        {page > 1 && <Link className="text-ink-2 hover:text-ink" href={`/updates?page=${page - 1}`}>← Newer</Link>}
-        {hasMore && <Link className="text-ink-2 hover:text-ink" href={`/updates?page=${page + 1}`}>Older →</Link>}
+        {page > 1 && <Link className="pressable text-ink-2 hover:text-ink" href={`/updates?page=${page - 1}`}>← Newer</Link>}
+        {hasMore && <Link className="pressable text-ink-2 hover:text-ink" href={`/updates?page=${page + 1}`}>Older →</Link>}
       </nav>
     </div>
   );

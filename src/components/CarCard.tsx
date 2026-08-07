@@ -9,6 +9,7 @@ import {
   formatDistance, formatDuration, formatEnergy, formatOdometer, formatPct,
   formatPower, formatSinceDuration, formatSpeed, formatTemp, KM_PER_MI, PSI_PER_BAR,
 } from "@/lib/format";
+import AnimatedNumber from "./AnimatedNumber";
 import BatteryBar from "./BatteryBar";
 import StateBadge from "./StateBadge";
 import MiniMap from "./LazyMiniMap";
@@ -55,9 +56,11 @@ function openParts(
 
 function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-2xl border border-line bg-panel-2 px-4 py-3">
+    <div className="rounded-2xl border border-line bg-panel-2 px-4 py-3 transition-[border-color,background-color] duration-200">
       <p className="text-[11px] uppercase tracking-[0.14em] text-ink-2">{label}</p>
-      <p className="mt-1 font-[family-name:var(--font-cond)] text-xl font-semibold tracking-tight">{value}</p>
+      <p className="mt-1 font-[family-name:var(--font-cond)] text-xl font-semibold tracking-tight">
+        <AnimatedNumber value={value} />
+      </p>
       {hint && <p className="mt-0.5 text-xs text-ink-2">{hint}</p>}
     </div>
   );
@@ -71,7 +74,7 @@ function Flag({ children, tone = "default" }: { children: ReactNode; tone?: "def
     : "var(--ink-2)";
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
+      className="flag-enter inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
       style={{ borderColor: `color-mix(in oklab, ${color} 35%, var(--line))`, color }}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} aria-hidden />
@@ -180,8 +183,6 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
 
   const driving = state === "driving" || (speed !== null && speed > 0);
 
-  // Composite state for visuals: catches the window where MQTT `state` still
-  // says "online" but charging_state/charger_power already show a session.
   const displayState = charging ? "charging" : driving ? "driving" : state;
 
   const tpms = {
@@ -198,7 +199,6 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
   };
   const hasTpms = Object.values(tpms).some((p) => p !== null);
   const anyTpmsWarn = Object.values(tpmsWarn).some(Boolean);
-  // TeslaMate reports bar; render bare values, unit lives in the tile label.
   const tyre = (bar: number | null, warn: boolean) => {
     if (bar === null) return "–";
     const v = settings.unitOfPressure === "psi" ? `${Math.round(bar * PSI_PER_BAR)}` : bar.toFixed(1);
@@ -225,10 +225,13 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
     updateAvail === true &&
     ((downloadPerc !== null && downloadPerc < 100) || (installPerc !== null && installPerc > 0 && installPerc < 100));
 
+  const socDisplay = formatPct(usable ?? soc).replace("%", "");
+  const powerHero = chargerPower !== null ? `+${formatPower(chargerPower)}` : "";
+  const speedHero = formatSpeed(speed, settings.unitOfLength);
+
   return (
     <section className="glass-panel overflow-hidden">
       <div className="grid lg:grid-cols-5">
-        {/* Hero */}
         <div className="flex flex-col p-6 sm:p-8 lg:col-span-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
@@ -241,7 +244,7 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
               <p className="mt-1 text-sm text-ink-2">{subtitle || "Tesla"}</p>
             </div>
             <div className="flex flex-col items-end gap-2">
-              <StateBadge state={displayState} />
+              <StateBadge state={displayState} live={connected} />
               {sinceLabel && (
                 <p className="text-[11px] text-ink-2">
                   since {sinceLabel}
@@ -256,26 +259,36 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
               <p className="text-xs uppercase tracking-[0.16em] text-ink-2">Battery</p>
               <div className="mt-1 flex items-baseline gap-3">
                 <span className="font-[family-name:var(--font-cond)] text-6xl font-semibold leading-none tracking-tight sm:text-7xl">
-                  {formatPct(usable ?? soc).replace("%", "")}
+                  <AnimatedNumber value={socDisplay} />
                   <span className="text-3xl text-ink-2">%</span>
                 </span>
                 <div className="pb-1 text-sm text-ink-2">
-                  <div>{formatDistance(rangeKm, settings.unitOfLength, 0)} rated</div>
+                  <div>
+                    <AnimatedNumber value={formatDistance(rangeKm, settings.unitOfLength, 0)} /> rated
+                  </div>
                   {estRange !== null && (
-                    <div>{formatDistance(estRange, settings.unitOfLength, 0)} estimated</div>
+                    <div>
+                      <AnimatedNumber value={formatDistance(estRange, settings.unitOfLength, 0)} /> estimated
+                    </div>
                   )}
                 </div>
               </div>
             </div>
             <div className="ml-auto flex flex-col items-end gap-1 text-right">
               {charging && chargerPower !== null && (
-                <p className="font-[family-name:var(--font-cond)] text-2xl font-semibold" style={{ color: "var(--state-charging)" }}>
-                  +{formatPower(chargerPower)}
+                <p
+                  className="charge-glow font-[family-name:var(--font-cond)] text-2xl font-semibold"
+                  style={{ color: "var(--state-charging)" }}
+                >
+                  <AnimatedNumber value={powerHero} />
                 </p>
               )}
               {driving && speed !== null && (
-                <p className="font-[family-name:var(--font-cond)] text-2xl font-semibold" style={{ color: "var(--state-driving)" }}>
-                  {formatSpeed(speed, settings.unitOfLength)}
+                <p
+                  className="font-[family-name:var(--font-cond)] text-2xl font-semibold"
+                  style={{ color: "var(--state-driving)" }}
+                >
+                  <AnimatedNumber value={speedHero} />
                 </p>
               )}
               {chargeLimit !== null && (
@@ -327,7 +340,7 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
           </div>
 
           {route && (
-            <div className="mt-6 rounded-2xl border border-line bg-[color-mix(in_oklab,var(--state-driving)_8%,var(--panel-2))] p-4">
+            <div className="panel-expand mt-6 rounded-2xl border border-line bg-[color-mix(in_oklab,var(--state-driving)_8%,var(--panel-2))] p-4">
               <p className="text-[11px] uppercase tracking-[0.16em]" style={{ color: "var(--state-driving)" }}>
                 Navigation
               </p>
@@ -378,7 +391,7 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
           )}
 
           {scheduledCharge && !charging && (
-            <div className="mt-6 rounded-2xl border border-line bg-panel-2 p-4">
+            <div className="panel-expand mt-6 rounded-2xl border border-line bg-panel-2 p-4">
               <p className="text-[11px] uppercase tracking-[0.16em] text-ink-2">Scheduled charge</p>
               <p className="mt-1 font-[family-name:var(--font-cond)] text-lg font-semibold">
                 {new Date(scheduledCharge).toLocaleString("en-US", {
@@ -390,7 +403,7 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
           )}
 
           {updateInProgress && (
-            <div className="mt-6 rounded-2xl border border-line bg-[color-mix(in_oklab,var(--state-updating)_10%,var(--panel-2))] p-4">
+            <div className="panel-expand mt-6 rounded-2xl border border-line bg-[color-mix(in_oklab,var(--state-updating)_10%,var(--panel-2))] p-4">
               <p className="text-[11px] uppercase tracking-[0.16em]" style={{ color: "var(--state-updating)" }}>
                 Software update{updateVersion ? ` · ${updateVersion}` : ""}
               </p>
@@ -402,7 +415,7 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-[color-mix(in_oklab,var(--ink)_10%,transparent)]">
                       <div
-                        className="h-full rounded-full"
+                        className="progress-fill"
                         style={{ width: `${Math.min(100, downloadPerc)}%`, background: "var(--state-updating)" }}
                       />
                     </div>
@@ -415,7 +428,7 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-[color-mix(in_oklab,var(--ink)_10%,transparent)]">
                       <div
-                        className="h-full rounded-full"
+                        className="progress-fill"
                         style={{ width: `${Math.min(100, installPerc)}%`, background: "var(--state-updating)" }}
                       />
                     </div>
@@ -426,7 +439,7 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
           )}
 
           {charging && (
-            <div className="mt-6 rounded-2xl border border-line bg-[color-mix(in_oklab,var(--state-charging)_8%,var(--panel-2))] p-4">
+            <div className="panel-expand mt-6 rounded-2xl border border-line bg-[color-mix(in_oklab,var(--state-charging)_8%,var(--panel-2))] p-4">
               <p className="text-[11px] uppercase tracking-[0.16em]" style={{ color: "var(--state-charging)" }}>
                 Charging session
               </p>
@@ -452,7 +465,7 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
           )}
 
           {driving && (
-            <div className="mt-6 rounded-2xl border border-line bg-[color-mix(in_oklab,var(--state-driving)_8%,var(--panel-2))] p-4">
+            <div className="panel-expand mt-6 rounded-2xl border border-line bg-[color-mix(in_oklab,var(--state-driving)_8%,var(--panel-2))] p-4">
               <p className="text-[11px] uppercase tracking-[0.16em]" style={{ color: "var(--state-driving)" }}>
                 Driving
               </p>
@@ -469,11 +482,12 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
           )}
         </div>
 
-        {/* Map + meta */}
         <div className="flex flex-col border-t border-line bg-panel-2 lg:col-span-2 lg:border-l lg:border-t-0">
           {lat !== null && lon !== null ? (
             <div className="min-h-56 flex-1 p-3 sm:p-4">
-              <MiniMap latitude={lat} longitude={lon} />
+              <div className={`map-live-ring h-full min-h-52 ${connected ? "is-live" : ""}`}>
+                <MiniMap latitude={lat} longitude={lon} />
+              </div>
               <p className="mt-2 font-[family-name:var(--font-mono)] text-[11px] text-ink-2">
                 {lat.toFixed(5)}, {lon.toFixed(5)}
                 {elevation !== null ? ` · ${Math.round(elevation)} m` : ""}
@@ -487,19 +501,24 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
         </div>
       </div>
 
-      {/* Stats strip */}
       <div className="grid grid-cols-2 gap-px border-t border-line bg-line sm:grid-cols-3 lg:grid-cols-6">
         <div className="bg-panel px-4 py-4">
           <p className="text-[11px] uppercase tracking-[0.14em] text-ink-2">Odometer</p>
-          <p className="mt-1 font-[family-name:var(--font-cond)] text-lg font-semibold">{formatOdometer(odo, settings.unitOfLength)}</p>
+          <p className="mt-1 font-[family-name:var(--font-cond)] text-lg font-semibold">
+            <AnimatedNumber value={formatOdometer(odo, settings.unitOfLength)} />
+          </p>
         </div>
         <div className="bg-panel px-4 py-4">
           <p className="text-[11px] uppercase tracking-[0.14em] text-ink-2">Cabin</p>
-          <p className="mt-1 font-[family-name:var(--font-cond)] text-lg font-semibold">{formatTemp(insideTemp, settings.unitOfTemperature)}</p>
+          <p className="mt-1 font-[family-name:var(--font-cond)] text-lg font-semibold">
+            <AnimatedNumber value={formatTemp(insideTemp, settings.unitOfTemperature)} />
+          </p>
         </div>
         <div className="bg-panel px-4 py-4">
           <p className="text-[11px] uppercase tracking-[0.14em] text-ink-2">Outside</p>
-          <p className="mt-1 font-[family-name:var(--font-cond)] text-lg font-semibold">{formatTemp(outsideTemp, settings.unitOfTemperature)}</p>
+          <p className="mt-1 font-[family-name:var(--font-cond)] text-lg font-semibold">
+            <AnimatedNumber value={formatTemp(outsideTemp, settings.unitOfTemperature)} />
+          </p>
         </div>
         <div className="bg-panel px-4 py-4">
           <p className="text-[11px] uppercase tracking-[0.14em] text-ink-2">Software</p>
@@ -507,7 +526,9 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
         </div>
         <div className="bg-panel px-4 py-4">
           <p className="text-[11px] uppercase tracking-[0.14em] text-ink-2">Charge limit</p>
-          <p className="mt-1 font-[family-name:var(--font-cond)] text-lg font-semibold">{formatPct(chargeLimit)}</p>
+          <p className="mt-1 font-[family-name:var(--font-cond)] text-lg font-semibold">
+            <AnimatedNumber value={formatPct(chargeLimit)} />
+          </p>
         </div>
         <div className="bg-panel px-4 py-4">
           <p className="text-[11px] uppercase tracking-[0.14em] text-ink-2">

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import DataUnavailable from "@/components/DataUnavailable";
+import EmptyState from "@/components/EmptyState";
 import { listStates } from "@/lib/db/timeline";
 import { safe } from "@/lib/db/pool";
 import { formatDuration } from "@/lib/format";
@@ -35,20 +36,20 @@ export default async function TimelinePage({
         Vehicle logger states (online / asleep / offline) from TeslaMate.
       </p>
       {items.length === 0 ? (
-        <p className="text-ink-2">No state history on this page.</p>
+        <EmptyState title="No state history" detail="TeslaMate will log online / asleep / offline here." icon="◷" />
       ) : (
-        <ul className="divide-y divide-line rounded-2xl border border-line bg-panel">
+        <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-panel">
           {items.map((s) => {
             const color = stateColor[s.state] ?? "var(--ink-2)";
             return (
-              <li key={s.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3">
+              <li key={s.id} className="list-row">
                 <span className="w-40 font-[family-name:var(--font-mono)] text-xs text-ink-2">
                   {new Date(s.startDate).toLocaleString("en-US", {
                     month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
                   })}
                 </span>
                 <span
-                  className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs capitalize"
+                  className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs capitalize transition-colors duration-300"
                   style={{ borderColor: `color-mix(in oklab, ${color} 40%, var(--line))`, color }}
                 >
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
@@ -64,8 +65,8 @@ export default async function TimelinePage({
         </ul>
       )}
       <nav className="mt-4 flex gap-3 text-sm">
-        {page > 1 && <Link className="text-ink-2 hover:text-ink" href={`/timeline?page=${page - 1}`}>← Newer</Link>}
-        {hasMore && <Link className="text-ink-2 hover:text-ink" href={`/timeline?page=${page + 1}`}>Older →</Link>}
+        {page > 1 && <Link className="pressable text-ink-2 hover:text-ink" href={`/timeline?page=${page - 1}`}>← Newer</Link>}
+        {hasMore && <Link className="pressable text-ink-2 hover:text-ink" href={`/timeline?page=${page + 1}`}>Older →</Link>}
       </nav>
     </div>
   );

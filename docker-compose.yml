@@ -4,7 +4,7 @@
 services:
   teslamate-frontend:
     # Pin release or sha tag from GHCR (no floating latest).
-    image: ghcr.io/jmcglock/a-better-teslamate-frontend:${IMAGE_TAG:?set IMAGE_TAG e.g. 1.1.0}
+    image: ghcr.io/jmcglock/a-better-teslamate-frontend:${IMAGE_TAG:?set IMAGE_TAG e.g. 1.1.1}
     # Or build locally:
     # build: .
     ports:

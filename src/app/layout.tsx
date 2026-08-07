@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Inter_Tight, JetBrains_Mono } from "next/font/google";
+import LiveToast from "@/components/LiveToast";
 import Nav from "@/components/Nav";
+import { LiveProvider } from "@/lib/live/LiveContext";
 import "./globals.css";
 
 const sans = Inter({ subsets: ["latin"], variable: "--font-sans" });
@@ -24,8 +26,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${sans.variable} ${cond.variable} ${mono.variable}`}>
       <body>
-        <Nav />
-        <main className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 lg:px-8">{children}</main>
+        <LiveProvider>
+          <Nav />
+          <main className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 lg:px-8">{children}</main>
+          <LiveToast />
+        </LiveProvider>
       </body>
     </html>
   );
