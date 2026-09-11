@@ -29,6 +29,7 @@ export default function StatsCharts({
   const c = useChartColors();
   const distUnit = unit === "mi" ? "mi" : "km";
   const effUnit = unit === "mi" ? "Wh/mi" : "Wh/km";
+  const spendLabel = chargeCost && chargeCost.length > 0 ? `${chargeCost.length} mo` : "0 mo";
   const toUnit = (km: number) => Math.round(kmToUnit(km, unit));
   const fmtKwh = (v: number | null) => (v === null ? "–" : `${v.toFixed(1)} kWh`);
 
@@ -69,7 +70,7 @@ export default function StatsCharts({
           <p className="mt-1 text-xs text-ink-2">projected at 100% SoC</p>
         </div>
         <div className="rounded-2xl border border-line bg-panel p-5">
-          <p className="text-[11px] uppercase tracking-[0.16em] text-ink-2">Charge spend (12 mo)</p>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-ink-2">Charge spend ({spendLabel})</p>
           <p className="mt-2 font-[family-name:var(--font-cond)] text-4xl font-semibold tracking-tight">
             {currency}{totalCost.toFixed(0)}
           </p>

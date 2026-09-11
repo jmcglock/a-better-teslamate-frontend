@@ -1,7 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
-  drainPctPerDay, monthLabel, newCarRatedRangeKm, summarizeBatteryHealth,
+  drainPctPerDay, monthLabel, newCarRatedRangeKm, parseStatsRange, summarizeBatteryHealth,
 } from "@/lib/db/stats";
+describe("parseStatsRange", () => {
+  it("accepts known keys", () => {
+    expect(parseStatsRange("12m")).toBe("12m");
+    expect(parseStatsRange("24m")).toBe("24m");
+    expect(parseStatsRange("36m")).toBe("36m");
+    expect(parseStatsRange("all")).toBe("all");
+  });
+  it("falls back to 12m for unknown or missing values", () => {
+    expect(parseStatsRange(undefined)).toBe("12m");
+    expect(parseStatsRange(null)).toBe("12m");
+    expect(parseStatsRange("999m")).toBe("12m");
+    expect(parseStatsRange("")).toBe("12m");
+  });
+});
 
 describe("drainPctPerDay", () => {
   it("computes normalized drain", () => expect(drainPctPerDay(80, 75, 24)).toBeCloseTo(5));
