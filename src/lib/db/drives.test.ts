@@ -20,6 +20,7 @@ const baseRow = {
   start_rated_range_km: "250.0",
   end_rated_range_km: "235.8",
   efficiency: "0.152",
+  car_name: "Test",
 };
 
 describe("mapDriveRow", () => {
@@ -33,6 +34,7 @@ describe("mapDriveRow", () => {
     expect(d.powerMinKw).toBe(-45);
     expect(d.ascentM).toBe(80);
     expect(d.insideTempAvgC).toBeCloseTo(21);
+    expect(d.carName).toBe("Test");
   });
   it("null efficiency when incomplete", () => {
     const d = mapDriveRow({
