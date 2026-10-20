@@ -1,4 +1,5 @@
 import { num } from "@/lib/format";
+import { sinceMonthsSql } from "./range";
 import { q } from "./pool";
 
 export type ChargeRow = {
@@ -10,6 +11,7 @@ export type ChargeRow = {
   outside_temp_avg: string | null;
   max_voltage: number | null; fast_charger: boolean | null;
   latitude: string | null; longitude: string | null;
+  car_name: string | null;
 };
 
 export type ChargeListItem = {
@@ -22,6 +24,7 @@ export type ChargeListItem = {
   latitude: number | null; longitude: number | null;
   /** DC fast charge heuristic from voltage / power / Tesla flag */
   chargeKind: "DC" | "AC" | null;
+  carName: string;
 };
 
 export type CurveRow = { date: Date; charger_power: number | null; battery_level: number | null };
@@ -64,6 +67,7 @@ export function mapChargeRow(r: ChargeRow): ChargeListItem {
     latitude: num(r.latitude),
     longitude: num(r.longitude),
     chargeKind: inferChargeKind({ fastCharger, maxVoltage, maxPowerKw }),
+    carName: r.car_name ?? "Car",
   };
 }
 
@@ -79,8 +83,10 @@ const CHARGE_SELECT = `
          (SELECT max(ch.charger_power) FROM charges ch WHERE ch.charging_process_id = cp.id) AS max_power,
          (SELECT max(ch.charger_voltage) FROM charges ch WHERE ch.charging_process_id = cp.id) AS max_voltage,
          (SELECT bool_or(ch.fast_charger_present) FROM charges ch WHERE ch.charging_process_id = cp.id) AS fast_charger,
-         pos.latitude AS latitude, pos.longitude AS longitude
+         pos.latitude AS latitude, pos.longitude AS longitude,
+         c.name AS car_name
   FROM charging_processes cp
+  JOIN cars c ON c.id = cp.car_id
   LEFT JOIN addresses a ON a.id = cp.address_id
   LEFT JOIN geofences g ON g.id = cp.geofence_id
   LEFT JOIN positions pos ON pos.id = cp.position_id
@@ -88,11 +94,18 @@ const CHARGE_SELECT = `
 
 export async function listCharges(
   page: number,
-  pageSize = 50,
+  opts: { pageSize?: number; carId?: number | null; months?: number | null } = {},
 ): Promise<{ items: ChargeListItem[]; hasMore: boolean }> {
+  const pageSize = opts.pageSize ?? 50;
+  const params: unknown[] = [pageSize + 1, (page - 1) * pageSize];
+  const where = ["cp.charge_energy_added > 0.1"];
+  if (opts.carId != null) {
+    params.push(opts.carId);
+    where.push(`cp.car_id = $${params.length}`);
+  }
   const rows = await q<ChargeRow>(
-    `${CHARGE_SELECT} WHERE cp.charge_energy_added > 0.1 ORDER BY cp.start_date DESC LIMIT $1 OFFSET $2`,
-    [pageSize + 1, (page - 1) * pageSize],
+    `${CHARGE_SELECT} WHERE ${where.join(" AND ")}${sinceMonthsSql("cp.start_date", opts.months ?? null, params)} ORDER BY cp.start_date DESC LIMIT $1 OFFSET $2`,
+    params,
   );
   return { items: rows.slice(0, pageSize).map(mapChargeRow), hasMore: rows.length > pageSize };
 }

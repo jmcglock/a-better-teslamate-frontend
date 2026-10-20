@@ -20,6 +20,7 @@ const baseRow = {
   fast_charger: false,
   latitude: "37.4",
   longitude: "-122.1",
+  car_name: "Test",
 };
 
 describe("mapChargeRow", () => {
@@ -31,6 +32,7 @@ describe("mapChargeRow", () => {
     expect(c.location).toBe("Home");
     expect(c.chargeKind).toBe("AC");
     expect(c.outsideTempAvgC).toBeCloseTo(12.5);
+    expect(c.carName).toBe("Test");
   });
   it("null location → label", () => {
     const c = mapChargeRow({

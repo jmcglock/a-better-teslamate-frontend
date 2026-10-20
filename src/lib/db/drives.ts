@@ -1,4 +1,5 @@
 import { num } from "@/lib/format";
+import { sinceMonthsSql } from "./range";
 import { q } from "./pool";
 
 export type DriveRow = {
@@ -10,6 +11,7 @@ export type DriveRow = {
   ascent: number | null; descent: number | null;
   start_rated_range_km: string | null; end_rated_range_km: string | null;
   efficiency: string | number | null;
+  car_name: string | null;
 };
 
 export type DriveListItem = {
@@ -22,6 +24,7 @@ export type DriveListItem = {
   startRatedRangeKm: number | null; endRatedRangeKm: number | null;
   /** Wh/km when computable, else null */
   efficiencyWhPerKm: number | null;
+  carName: string;
 };
 
 export type PointRow = {
@@ -71,6 +74,7 @@ export function mapDriveRow(r: DriveRow): DriveListItem {
     startRatedRangeKm: num(r.start_rated_range_km),
     endRatedRangeKm: num(r.end_rated_range_km),
     efficiencyWhPerKm: driveEfficiencyWhPerKm(rangeUsedKm, distanceKm, carEff),
+    carName: r.car_name ?? "Car",
   };
 }
 
@@ -91,7 +95,7 @@ const DRIVE_SELECT = `
          (d.start_rated_range_km - d.end_rated_range_km) AS range_used_km,
          d.outside_temp_avg, d.inside_temp_avg, d.power_max, d.power_min,
          d.ascent, d.descent, d.start_rated_range_km, d.end_rated_range_km,
-         c.efficiency,
+         c.efficiency, c.name AS car_name,
          COALESCE(gs.name, sa.city, sa.display_name) AS start_label,
          COALESCE(ge.name, ea.city, ea.display_name) AS end_label
   FROM drives d
@@ -104,11 +108,18 @@ const DRIVE_SELECT = `
 
 export async function listDrives(
   page: number,
-  pageSize = 50,
+  opts: { pageSize?: number; carId?: number | null; months?: number | null } = {},
 ): Promise<{ items: DriveListItem[]; hasMore: boolean }> {
+  const pageSize = opts.pageSize ?? 50;
+  const params: unknown[] = [pageSize + 1, (page - 1) * pageSize];
+  const where = ["d.distance > 0.1"];
+  if (opts.carId != null) {
+    params.push(opts.carId);
+    where.push(`d.car_id = $${params.length}`);
+  }
   const rows = await q<DriveRow>(
-    `${DRIVE_SELECT} WHERE d.distance > 0.1 ORDER BY d.start_date DESC LIMIT $1 OFFSET $2`,
-    [pageSize + 1, (page - 1) * pageSize],
+    `${DRIVE_SELECT} WHERE ${where.join(" AND ")}${sinceMonthsSql("d.start_date", opts.months ?? null, params)} ORDER BY d.start_date DESC LIMIT $1 OFFSET $2`,
+    params,
   );
   return { items: rows.slice(0, pageSize).map(mapDriveRow), hasMore: rows.length > pageSize };
 }

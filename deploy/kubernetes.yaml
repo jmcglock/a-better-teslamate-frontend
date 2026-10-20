@@ -39,7 +39,7 @@ spec:
       containers:
         - name: teslamate-frontend
           # Pin release or sha tag from GHCR (immutable).
-          image: ghcr.io/jmcglock/a-better-teslamate-frontend:1.1.4
+          image: ghcr.io/jmcglock/a-better-teslamate-frontend:1.2.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

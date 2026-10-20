@@ -13,7 +13,7 @@ TeslaMate itself is untouched.
 Prefer a **release tag** (semver). Every main build also gets an immutable `sha-<short>` tag. No floating `latest`.
 
 ```bash
-IMG=ghcr.io/jmcglock/a-better-teslamate-frontend:1.1.4
+IMG=ghcr.io/jmcglock/a-better-teslamate-frontend:1.2.0
 # or pin a build: ...:sha-<short> from Packages / Actions
 
 docker pull "$IMG"
@@ -31,7 +31,15 @@ docker compose up -d
 ```
 
 Image: `ghcr.io/jmcglock/a-better-teslamate-frontend`  
-Tags: `1.1.4` / `v1.1.4` on releases; `sha-<short>` on every main build.
+Tags: `1.2.0` / `v1.2.0` on releases; `sha-<short>` on every main build.
+
+## What's in 1.2.0
+
+- Stats time range: 12 months, 24 months, 36 months, or all history. Battery health cards stay on the full series so degradation does not move with the chart window. Standby drain stays on its 18-month scan.
+- Drives and Charges: car filter and calendar window (this month, 3 months, 12 months, all). Filters stay in the URL across pages.
+- Stats: charge spend by place for the selected car and range, with a Home / Away split when a geofence is named Home.
+- Security: Next.js 16.4.0 → 16.4.2 (GHSA-673q-mjm6-r5xr, GHSA-2464-fhr4-w9xw / CVE-2026-96889, GHSA-p3m5-59mp-jv5r) and React 19.3.0 → 19.3.1 (GHSA-xqc2-xf4c-x3h3, GHSA-h3gv-c5rc-p453).
+- Runtime and dependencies current: Node 26, and direct libraries at their latest releases (`maplibre-gl` 6.15, `mqtt` 5.16.1, `recharts` 3.10, Tailwind 4.3, TypeScript 7.0.2, Vitest 5.0.5, `postcss` 8.5.31, `sharp` 0.35.5).
 
 ## What's in 1.1.4
 

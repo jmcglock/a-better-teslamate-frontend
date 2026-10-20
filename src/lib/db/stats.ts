@@ -1,8 +1,33 @@
 import { cached } from "@/lib/cache";
 import { num } from "@/lib/format";
+import { sinceMonthsSql } from "./range";
 import { q } from "./pool";
 
 const STATS_TTL_MS = 5 * 60_000;
+
+export const STATS_RANGES = [
+  { key: "12m", label: "12 mo", months: 12 },
+  { key: "24m", label: "24 mo", months: 24 },
+  { key: "36m", label: "36 mo", months: 36 },
+  { key: "all", label: "All", months: null },
+] as const;
+
+export type StatsRangeKey = (typeof STATS_RANGES)[number]["key"];
+
+/** Unknown values fall back to 12 months, the previous fixed window. */
+export function parseStatsRange(key: string | undefined | null): StatsRangeKey {
+  const found = STATS_RANGES.find((range) => range.key === key);
+  return found ? found.key : "12m";
+}
+
+export function statsRangeMonths(key: StatsRangeKey): number | null {
+  const found = STATS_RANGES.find((range) => range.key === key);
+  return found ? found.months : 12;
+}
+
+export function statsRangeLabel(key: StatsRangeKey): string {
+  return STATS_RANGES.find((range) => range.key === key)?.label ?? "12 mo";
+}
 
 export function drainPctPerDay(socStart: number, socEnd: number, hours: number): number | null {
   if (hours < 6) return null;
@@ -17,26 +42,36 @@ export function monthLabel(d: Date): string {
 
 type MonthRow = { month: Date; v: string | number | null };
 
-export async function getMonthlyMileage(carId: number): Promise<{ label: string; v: number }[]> {
-  return cached(`mileage:${carId}`, STATS_TTL_MS, async () => {
+export async function getMonthlyMileage(
+  carId: number,
+  range: StatsRangeKey = "12m",
+): Promise<{ label: string; v: number }[]> {
+  const months = statsRangeMonths(range);
+  return cached(`mileage:${carId}:${range}`, STATS_TTL_MS, async () => {
+    const params: unknown[] = [carId];
     const rows = await q<MonthRow>(`
       SELECT date_trunc('month', start_date) AS month, sum(distance) AS v
-      FROM drives WHERE car_id = $1 AND distance > 0.1
-      GROUP BY 1 ORDER BY 1 DESC LIMIT 12
-    `, [carId]);
+      FROM drives WHERE car_id = $1 AND distance > 0.1${sinceMonthsSql("start_date", months, params)}
+      GROUP BY 1 ORDER BY 1 DESC
+    `, params);
     return rows.reverse().map((r) => ({ label: monthLabel(r.month), v: num(r.v) ?? 0 }));
   });
 }
 
-export async function getMonthlyEfficiency(carId: number): Promise<{ label: string; v: number }[]> {
-  return cached(`efficiency:${carId}`, STATS_TTL_MS, async () => {
+export async function getMonthlyEfficiency(
+  carId: number,
+  range: StatsRangeKey = "12m",
+): Promise<{ label: string; v: number }[]> {
+  const months = statsRangeMonths(range);
+  return cached(`efficiency:${carId}:${range}`, STATS_TTL_MS, async () => {
+    const params: unknown[] = [carId];
     const rows = await q<MonthRow>(`
       SELECT date_trunc('month', d.start_date) AS month,
              sum((d.start_rated_range_km - d.end_rated_range_km) * c.efficiency) * 1000 / nullif(sum(d.distance), 0) AS v
       FROM drives d JOIN cars c ON c.id = d.car_id
-      WHERE d.car_id = $1 AND d.distance > 0.1 AND d.start_rated_range_km IS NOT NULL AND d.end_rated_range_km IS NOT NULL
-      GROUP BY 1 ORDER BY 1 DESC LIMIT 12
-    `, [carId]);
+      WHERE d.car_id = $1 AND d.distance > 0.1 AND d.start_rated_range_km IS NOT NULL AND d.end_rated_range_km IS NOT NULL${sinceMonthsSql("d.start_date", months, params)}
+      GROUP BY 1 ORDER BY 1 DESC
+    `, params);
     return rows.reverse().flatMap((r) => {
       const v = num(r.v);
       return v === null || v <= 0 ? [] : [{ label: monthLabel(r.month), v }];
@@ -44,16 +79,25 @@ export async function getMonthlyEfficiency(carId: number): Promise<{ label: stri
   });
 }
 
-/** Projected full-pack rated range (km) by month — battery health proxy. */
-export async function getBatteryHealth(carId: number): Promise<{ t: number; v: number | null }[]> {
-  return cached(`health:${carId}`, STATS_TTL_MS, async () => {
+/**
+ * Projected full-pack rated range (km) by month — battery health proxy.
+ * The chart follows `range`. Pass `"all"` for a stable degradation baseline;
+ * the previous page used a fixed 24-month limit.
+ */
+export async function getBatteryHealth(
+  carId: number,
+  range: StatsRangeKey = "12m",
+): Promise<{ t: number; v: number | null }[]> {
+  const months = statsRangeMonths(range);
+  return cached(`health:${carId}:${range}`, STATS_TTL_MS, async () => {
+    const params: unknown[] = [carId];
     const rows = await q<MonthRow>(`
       SELECT date_trunc('month', cp.start_date) AS month,
              max(cp.end_rated_range_km / nullif(cp.end_battery_level, 0) * 100) AS v
       FROM charging_processes cp
-      WHERE cp.car_id = $1 AND cp.end_battery_level >= 50 AND cp.end_rated_range_km IS NOT NULL
-      GROUP BY 1 ORDER BY 1 DESC LIMIT 24
-    `, [carId]);
+      WHERE cp.car_id = $1 AND cp.end_battery_level >= 50 AND cp.end_rated_range_km IS NOT NULL${sinceMonthsSql("cp.start_date", months, params)}
+      GROUP BY 1 ORDER BY 1 DESC
+    `, params);
     return rows.reverse().map((r) => ({ t: r.month.getTime(), v: num(r.v) }));
   });
 }
@@ -67,16 +111,21 @@ type CostMonthRow = {
 export type MonthlyCost = { label: string; cost: number; energyKwh: number };
 
 /** Monthly charge cost + energy for spend summary. */
-export async function getMonthlyChargeCost(carId: number): Promise<MonthlyCost[]> {
-  return cached(`chargeCost:${carId}`, STATS_TTL_MS, async () => {
+export async function getMonthlyChargeCost(
+  carId: number,
+  range: StatsRangeKey = "12m",
+): Promise<MonthlyCost[]> {
+  const months = statsRangeMonths(range);
+  return cached(`chargeCost:${carId}:${range}`, STATS_TTL_MS, async () => {
+    const params: unknown[] = [carId];
     const rows = await q<CostMonthRow>(`
       SELECT date_trunc('month', start_date) AS month,
              sum(cost) AS cost,
              sum(charge_energy_added) AS energy
       FROM charging_processes
-      WHERE car_id = $1 AND charge_energy_added > 0.1
-      GROUP BY 1 ORDER BY 1 DESC LIMIT 12
-    `, [carId]);
+      WHERE car_id = $1 AND charge_energy_added > 0.1${sinceMonthsSql("start_date", months, params)}
+      GROUP BY 1 ORDER BY 1 DESC
+    `, params);
     return rows.reverse().map((r) => ({
       label: monthLabel(r.month),
       cost: num(r.cost) ?? 0,
