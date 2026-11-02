@@ -1,6 +1,7 @@
 import Link from "next/link";
 import DataUnavailable from "@/components/DataUnavailable";
 import EmptyState from "@/components/EmptyState";
+import ExportCsvLink from "@/components/ExportCsvLink";
 import FilterPills from "@/components/FilterPills";
 import { listDrives } from "@/lib/db/drives";
 import { listCarIdentities } from "@/lib/db/stats";
@@ -43,7 +44,10 @@ export default async function DrivesPage({
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <h1 className="font-[family-name:var(--font-cond)] text-2xl font-semibold tracking-tight">Drives</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="font-[family-name:var(--font-cond)] text-2xl font-semibold tracking-tight">Drives</h1>
+          <ExportCsvLink path="/api/drives/export" car={carId} range={range} />
+        </div>
         <div className="flex flex-wrap items-center gap-4">
           {cars.length > 1 && (
             <FilterPills
