@@ -3,7 +3,7 @@ import DataUnavailable from "@/components/DataUnavailable";
 import EmptyState from "@/components/EmptyState";
 import ExportCsvLink from "@/components/ExportCsvLink";
 import FilterPills from "@/components/FilterPills";
-import { listDrives } from "@/lib/db/drives";
+import { getDriveTotals, listDrives } from "@/lib/db/drives";
 import { listCarIdentities } from "@/lib/db/stats";
 import { getSettings } from "@/lib/db/settings";
 import { safe } from "@/lib/db/pool";
@@ -14,7 +14,7 @@ import {
   parseCarId,
   parseHistoryRange,
 } from "@/lib/db/range";
-import { formatDistance, formatDuration, formatEfficiency, formatSpeed } from "@/lib/format";
+import { formatDistance, formatDriveCount, formatDuration, formatEfficiency, formatSpeed } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -32,12 +32,14 @@ export default async function DrivesPage({
   const cars = carsRes.data;
   const carId = parseCarId(sp.car, cars.map((car) => car.id));
 
+  const months = historyRangeMonths(range);
   const res = await safe(Promise.all([
-    listDrives(page, { carId, months: historyRangeMonths(range) }),
+    listDrives(page, { carId, months }),
+    getDriveTotals({ carId, months }),
     getSettings(),
   ]));
   if (!res.ok) return <DataUnavailable service="database" detail={res.error} />;
-  const [{ items: drives, hasMore }, settings] = res.data;
+  const [{ items: drives, hasMore }, totals, settings] = res.data;
   const filtered = carId !== null || range !== "all";
   const href = (nextPage: number) => historyHref("/drives", { car: carId, range, page: nextPage });
 
@@ -63,6 +65,20 @@ export default async function DrivesPage({
           />
         </div>
       </div>
+      <section aria-label="Drive totals" className="mb-4 grid grid-cols-1 gap-3 rounded-2xl border border-line bg-panel px-4 py-3 sm:grid-cols-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.14em] text-ink-2">Drives</p>
+          <p className="mt-1 font-[family-name:var(--font-cond)] text-lg font-semibold">{formatDriveCount(totals.count)}</p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.14em] text-ink-2">Distance</p>
+          <p className="mt-1 font-[family-name:var(--font-cond)] text-lg font-semibold">{formatDistance(totals.distanceKm, settings.unitOfLength)}</p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.14em] text-ink-2">Driving time</p>
+          <p className="mt-1 font-[family-name:var(--font-cond)] text-lg font-semibold">{formatDuration(totals.durationMin)}</p>
+        </div>
+      </section>
       {drives.length === 0 ? (
         <EmptyState
           title={filtered ? "No drives in this view" : "No drives on this page"}

@@ -40,6 +40,11 @@ export function formatDuration(min: number | null): string {
   return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")} min`;
 }
 
+export function formatDriveCount(count: number): string {
+  const n = Math.round(count);
+  return `${n.toLocaleString("en-US")} ${n === 1 ? "drive" : "drives"}`;
+}
+
 export function formatEnergy(kwh: number | null): string {
   return kwh === null ? DASH : `${kwh.toFixed(1)} kWh`;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  formatCost, formatCostPerKwh, formatDistance, formatDuration, formatEfficiency, formatElevation,
+  formatCost, formatCostPerKwh, formatDistance, formatDriveCount, formatDuration, formatEfficiency, formatElevation,
   formatEnergy, formatOdometer, formatPct, formatPower, formatPressure, formatSinceDuration,
   formatSpeed, formatTemp, kmToUnit, num,
 } from "@/lib/format";
@@ -51,6 +51,11 @@ describe("formatters", () => {
   it("cost per kWh null", () => expect(formatCostPerKwh(6, 0)).toBe("–"));
   it("elevation m", () => expect(formatElevation(100, "km")).toBe("100 m"));
   it("elevation ft", () => expect(formatElevation(100, "mi")).toBe("328 ft"));
+  it("drive count", () => {
+    expect(formatDriveCount(1)).toBe("1 drive");
+    expect(formatDriveCount(0)).toBe("0 drives");
+    expect(formatDriveCount(1200)).toBe("1,200 drives");
+  });
   it("since duration", () => {
     const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
     expect(formatSinceDuration(fiveMinAgo)).toBe("5 min");

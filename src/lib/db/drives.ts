@@ -41,6 +41,59 @@ export type DrivePoint = {
 
 export type DriveDetail = DriveListItem & { points: DrivePoint[] };
 
+/** Same cutoff as the drives list. Shorter hops stay off the list and out of the totals. */
+export const MIN_LISTED_DRIVE_KM = 0.1;
+
+export type DriveFilterInput = {
+  carId: number;
+  startDate: Date;
+  distanceKm: number | null;
+  durationMin: number | null;
+};
+
+export type DriveTotals = {
+  count: number;
+  distanceKm: number;
+  durationMin: number;
+};
+
+export type DriveTotalsRow = {
+  count: string | number | null;
+  distance_km: string | number | null;
+  duration_min: string | number | null;
+};
+
+/** Rows that pass the drives-list filters: distance, optional car, optional window start. */
+export function drivesMatchingFilter<T extends DriveFilterInput>(
+  drives: readonly T[],
+  filter: { carId?: number | null; since?: Date | null },
+): T[] {
+  return drives.filter((drive) => {
+    if (drive.distanceKm === null || !(drive.distanceKm > MIN_LISTED_DRIVE_KM)) return false;
+    if (filter.carId != null && drive.carId !== filter.carId) return false;
+    if (filter.since != null && drive.startDate < filter.since) return false;
+    return true;
+  });
+}
+
+export function summarizeDrives(drives: readonly DriveFilterInput[]): DriveTotals {
+  let distanceKm = 0;
+  let durationMin = 0;
+  for (const drive of drives) {
+    distanceKm += drive.distanceKm ?? 0;
+    durationMin += drive.durationMin ?? 0;
+  }
+  return { count: drives.length, distanceKm, durationMin };
+}
+
+export function mapDriveTotals(row: DriveTotalsRow | undefined): DriveTotals {
+  return {
+    count: num(row?.count) ?? 0,
+    distanceKm: num(row?.distance_km) ?? 0,
+    durationMin: num(row?.duration_min) ?? 0,
+  };
+}
+
 export function driveEfficiencyWhPerKm(
   rangeUsedKm: number | null,
   distanceKm: number | null,
@@ -106,22 +159,42 @@ const DRIVE_SELECT = `
   LEFT JOIN geofences ge ON ge.id = d.end_geofence_id
 `;
 
-export async function listDrives(
-  page: number,
-  opts: { pageSize?: number; carId?: number | null; months?: number | null } = {},
-): Promise<{ items: DriveListItem[]; hasMore: boolean }> {
-  const pageSize = opts.pageSize ?? 50;
-  const params: unknown[] = [pageSize + 1, (page - 1) * pageSize];
-  const where = ["d.distance > 0.1"];
+type DriveListOpts = { carId?: number | null; months?: number | null };
+
+function driveListWhere(opts: DriveListOpts, params: unknown[]): string {
+  const where = [`d.distance > ${MIN_LISTED_DRIVE_KM}`];
   if (opts.carId != null) {
     params.push(opts.carId);
     where.push(`d.car_id = $${params.length}`);
   }
+  return `${where.join(" AND ")}${sinceMonthsSql("d.start_date", opts.months ?? null, params)}`;
+}
+
+export async function listDrives(
+  page: number,
+  opts: DriveListOpts & { pageSize?: number } = {},
+): Promise<{ items: DriveListItem[]; hasMore: boolean }> {
+  const pageSize = opts.pageSize ?? 50;
+  const params: unknown[] = [pageSize + 1, (page - 1) * pageSize];
   const rows = await q<DriveRow>(
-    `${DRIVE_SELECT} WHERE ${where.join(" AND ")}${sinceMonthsSql("d.start_date", opts.months ?? null, params)} ORDER BY d.start_date DESC LIMIT $1 OFFSET $2`,
+    `${DRIVE_SELECT} WHERE ${driveListWhere(opts, params)} ORDER BY d.start_date DESC LIMIT $1 OFFSET $2`,
     params,
   );
   return { items: rows.slice(0, pageSize).map(mapDriveRow), hasMore: rows.length > pageSize };
+}
+
+/** Count, distance, and driving time for the same car and calendar window as the drives list. */
+export async function getDriveTotals(opts: DriveListOpts = {}): Promise<DriveTotals> {
+  const params: unknown[] = [];
+  const rows = await q<DriveTotalsRow>(
+    `SELECT count(*)::int AS count,
+            coalesce(sum(d.distance), 0) AS distance_km,
+            coalesce(sum(d.duration_min), 0) AS duration_min
+     FROM drives d
+     WHERE ${driveListWhere(opts, params)}`,
+    params,
+  );
+  return mapDriveTotals(rows[0]);
 }
 
 export async function getDrive(id: number): Promise<DriveDetail | null> {
