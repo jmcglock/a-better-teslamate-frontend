@@ -40,7 +40,7 @@ export type GeofenceRow = {
   name: string;
   latitude: string;
   longitude: string;
-  radius: number;
+  radius: string | number;
   cost_per_unit: string | null;
   session_fee: string | null;
 };
@@ -143,7 +143,7 @@ export function mapGeofenceRow(r: GeofenceRow): GeofenceItem {
     name: r.name,
     latitude: num(r.latitude) ?? 0,
     longitude: num(r.longitude) ?? 0,
-    radiusM: r.radius,
+    radiusM: num(r.radius) ?? 0,
     costPerUnit: num(r.cost_per_unit),
     sessionFee: num(r.session_fee),
   };

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { formatDistance } from "@/lib/format";
 import {
   driveEfficiencyWhPerKm,
   drivesMatchingFilter,
@@ -65,6 +66,35 @@ describe("mapDriveRow", () => {
     });
     expect(d.efficiencyWhPerKm).toBeNull();
   });
+
+  it("coerces numeric strings from node-pg and formats km and miles", () => {
+    const d = mapDriveRow({
+      ...baseRow,
+      distance: "10.0",
+      duration_min: "0",
+      speed_max: "88",
+      power_max: "120",
+      power_min: "-45",
+      ascent: "12",
+      descent: null,
+      outside_temp_avg: null,
+      inside_temp_avg: null,
+      range_used_km: null,
+      start_rated_range_km: null,
+      end_rated_range_km: null,
+    });
+    expect(formatDistance(d.distanceKm, "km")).toBe("10.0 km");
+    expect(formatDistance(d.distanceKm, "mi")).toBe("6.2 mi");
+    expect(d.distanceKm).toBe(10);
+    expect(d.durationMin).toBe(0);
+    expect(d.speedMaxKmh).toBe(88);
+    expect(d.powerMaxKw).toBe(120);
+    expect(d.powerMinKw).toBe(-45);
+    expect(d.ascentM).toBe(12);
+    expect(d.descentM).toBeNull();
+    expect(d.outsideTempAvgC).toBeNull();
+    expect(d.insideTempAvgC).toBeNull();
+  });
 });
 
 describe("driveEfficiencyWhPerKm", () => {
@@ -130,6 +160,22 @@ describe("mapDrivePoint", () => {
     expect(p.soc).toBe(64);
     expect(p.lat).toBeCloseTo(37.4);
     expect(p.elevation).toBe(42);
+    expect(p.power).toBe(-12);
+  });
+
+  it("coerces numeric strings from node-pg", () => {
+    const p = mapDrivePoint({
+      date: new Date("2026-07-01T08:10:00Z"),
+      speed: "0",
+      battery_level: "64",
+      latitude: "37.4",
+      longitude: "-122.1",
+      elevation: null,
+      power: "-12",
+    });
+    expect(p.speed).toBe(0);
+    expect(p.soc).toBe(64);
+    expect(p.elevation).toBeNull();
     expect(p.power).toBe(-12);
   });
 });

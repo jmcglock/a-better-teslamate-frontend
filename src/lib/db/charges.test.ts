@@ -34,6 +34,22 @@ describe("mapChargeRow", () => {
     expect(c.outsideTempAvgC).toBeCloseTo(12.5);
     expect(c.carName).toBe("Test");
   });
+  it("coerces numeric strings from node-pg", () => {
+    const c = mapChargeRow({
+      ...baseRow,
+      duration_min: "0",
+      start_battery_level: "22",
+      end_battery_level: null,
+      max_power: "11",
+      max_voltage: "240",
+    });
+    expect(c.durationMin).toBe(0);
+    expect(c.socStart).toBe(22);
+    expect(c.socEnd).toBeNull();
+    expect(c.maxPowerKw).toBe(11);
+    expect(c.maxVoltage).toBe(240);
+    expect(c.chargeKind).toBe("AC");
+  });
   it("null location → label", () => {
     const c = mapChargeRow({
       ...baseRow,
@@ -77,5 +93,14 @@ describe("mapCurvePoint", () => {
     expect(p.power).toBe(11);
     expect(p.soc).toBe(25);
     expect(p.t).toBe(Date.parse("2026-07-02T22:10:00Z"));
+  });
+  it("coerces numeric strings from node-pg", () => {
+    const p = mapCurvePoint({
+      date: new Date("2026-07-02T22:10:00Z"),
+      charger_power: "0",
+      battery_level: null,
+    });
+    expect(p.power).toBe(0);
+    expect(p.soc).toBeNull();
   });
 });

@@ -35,4 +35,15 @@ describe("mapCarRow", () => {
     const c = mapCarRow({ ...row, name: null });
     expect(c.name).toBe("Car 1");
   });
+  it("coerces numeric strings from node-pg", () => {
+    const c = mapCarRow({
+      ...row,
+      battery_level: "72",
+      usable_battery_level: "0",
+      odometer: "34567.2",
+    });
+    expect(c.batteryLevel).toBe(72);
+    expect(c.usableBatteryLevel).toBe(0);
+    expect(c.odometerKm).toBe(34567.2);
+  });
 });

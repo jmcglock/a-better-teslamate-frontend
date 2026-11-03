@@ -4,9 +4,9 @@ import { q } from "./pool";
 export type CarRow = {
   id: number; name: string | null; model: string | null; marketing_name: string | null;
   latitude: string | null; longitude: string | null;
-  battery_level: number | null; usable_battery_level: number | null;
+  battery_level: string | number | null; usable_battery_level: string | number | null;
   rated_battery_range_km: string | null; ideal_battery_range_km: string | null;
-  odometer: number | null; inside_temp: string | null; outside_temp: string | null;
+  odometer: string | number | null; inside_temp: string | null; outside_temp: string | null;
   position_date: Date | null; db_state: string | null;
 };
 
@@ -25,11 +25,11 @@ export function mapCarRow(r: CarRow): CarCard {
     model: r.model,
     marketingName: r.marketing_name,
     state: r.db_state ?? "offline",
-    batteryLevel: r.battery_level,
-    usableBatteryLevel: r.usable_battery_level,
+    batteryLevel: num(r.battery_level),
+    usableBatteryLevel: num(r.usable_battery_level),
     ratedRangeKm: num(r.rated_battery_range_km),
     idealRangeKm: num(r.ideal_battery_range_km),
-    odometerKm: r.odometer,
+    odometerKm: num(r.odometer),
     insideTempC: num(r.inside_temp),
     outsideTempC: num(r.outside_temp),
     latitude: num(r.latitude),

@@ -5,11 +5,11 @@ import { q } from "./pool";
 export type ChargeRow = {
   id: number; start_date: Date; end_date: Date | null;
   charge_energy_added: string | null; charge_energy_used: string | null; cost: string | null;
-  duration_min: number | null; start_battery_level: number | null; end_battery_level: number | null;
-  location: string | null; max_power: number | null;
+  duration_min: string | number | null; start_battery_level: string | number | null; end_battery_level: string | number | null;
+  location: string | null; max_power: string | number | null;
   start_rated_range_km: string | null; end_rated_range_km: string | null;
   outside_temp_avg: string | null;
-  max_voltage: number | null; fast_charger: boolean | null;
+  max_voltage: string | number | null; fast_charger: boolean | null;
   latitude: string | null; longitude: string | null;
   car_name: string | null;
 };
@@ -27,7 +27,7 @@ export type ChargeListItem = {
   carName: string;
 };
 
-export type CurveRow = { date: Date; charger_power: number | null; battery_level: number | null };
+export type CurveRow = { date: Date; charger_power: string | number | null; battery_level: string | number | null };
 export type CurvePoint = { t: number; power: number | null; soc: number | null };
 export type ChargeDetail = ChargeListItem & { points: CurvePoint[] };
 
@@ -44,8 +44,8 @@ export function inferChargeKind(opts: {
 }
 
 export function mapChargeRow(r: ChargeRow): ChargeListItem {
-  const maxVoltage = r.max_voltage;
-  const maxPowerKw = r.max_power;
+  const maxVoltage = num(r.max_voltage);
+  const maxPowerKw = num(r.max_power);
   const fastCharger = r.fast_charger;
   return {
     id: r.id,
@@ -55,9 +55,9 @@ export function mapChargeRow(r: ChargeRow): ChargeListItem {
     energyAddedKwh: num(r.charge_energy_added),
     energyUsedKwh: num(r.charge_energy_used),
     cost: num(r.cost),
-    durationMin: r.duration_min,
-    socStart: r.start_battery_level,
-    socEnd: r.end_battery_level,
+    durationMin: num(r.duration_min),
+    socStart: num(r.start_battery_level),
+    socEnd: num(r.end_battery_level),
     maxPowerKw,
     startRatedRangeKm: num(r.start_rated_range_km),
     endRatedRangeKm: num(r.end_rated_range_km),
@@ -72,7 +72,7 @@ export function mapChargeRow(r: ChargeRow): ChargeListItem {
 }
 
 export function mapCurvePoint(r: CurveRow): CurvePoint {
-  return { t: r.date.getTime(), power: r.charger_power, soc: r.battery_level };
+  return { t: r.date.getTime(), power: num(r.charger_power), soc: num(r.battery_level) };
 }
 
 const CHARGE_SELECT = `

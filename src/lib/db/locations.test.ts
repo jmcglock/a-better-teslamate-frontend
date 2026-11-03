@@ -1,9 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { isHomeLocation, summarizePlaceSpend, type PlaceItem } from "@/lib/db/locations";
+import { isHomeLocation, mapGeofenceRow, summarizePlaceSpend, type PlaceItem } from "@/lib/db/locations";
 
 function place(location: string, cost: number, energyKwh: number, visits = 1): PlaceItem {
   return { location, cost, energyKwh, visits, lastVisit: null };
 }
+
+describe("mapGeofenceRow", () => {
+  it("coerces numeric strings from node-pg", () => {
+    const g = mapGeofenceRow({
+      id: 4,
+      name: "Home",
+      latitude: "37.400000",
+      longitude: "-122.100000",
+      radius: "50",
+      cost_per_unit: "0.12",
+      session_fee: null,
+    });
+    expect(g.radiusM).toBe(50);
+    expect(g.latitude).toBeCloseTo(37.4);
+    expect(g.longitude).toBeCloseTo(-122.1);
+    expect(g.costPerUnit).toBeCloseTo(0.12);
+    expect(g.sessionFee).toBeNull();
+  });
+});
 
 describe("isHomeLocation", () => {
   it("matches the geofence name Home only", () => {

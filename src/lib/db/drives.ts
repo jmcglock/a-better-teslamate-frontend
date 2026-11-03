@@ -4,11 +4,11 @@ import { q } from "./pool";
 
 export type DriveRow = {
   id: number; start_date: Date; end_date: Date | null;
-  distance: number | null; duration_min: number | null; speed_max: number | null;
+  distance: string | number | null; duration_min: string | number | null; speed_max: string | number | null;
   range_used_km: string | null; start_label: string | null; end_label: string | null;
   outside_temp_avg: string | null; inside_temp_avg: string | null;
-  power_max: number | null; power_min: number | null;
-  ascent: number | null; descent: number | null;
+  power_max: string | number | null; power_min: string | number | null;
+  ascent: string | number | null; descent: string | number | null;
   start_rated_range_km: string | null; end_rated_range_km: string | null;
   efficiency: string | number | null;
   car_name: string | null;
@@ -28,9 +28,9 @@ export type DriveListItem = {
 };
 
 export type PointRow = {
-  date: Date; speed: number | null; battery_level: number | null;
+  date: Date; speed: string | number | null; battery_level: string | number | null;
   latitude: string; longitude: string;
-  elevation: number | null; power: number | null;
+  elevation: string | number | null; power: string | number | null;
 };
 
 export type DrivePoint = {
@@ -106,24 +106,24 @@ export function driveEfficiencyWhPerKm(
 
 export function mapDriveRow(r: DriveRow): DriveListItem {
   const rangeUsedKm = num(r.range_used_km);
-  const distanceKm = r.distance;
+  const distanceKm = num(r.distance);
   const carEff = num(r.efficiency);
   return {
     id: r.id,
     startDate: r.start_date.toISOString(),
     endDate: r.end_date ? r.end_date.toISOString() : null,
     distanceKm,
-    durationMin: r.duration_min,
-    speedMaxKmh: r.speed_max,
+    durationMin: num(r.duration_min),
+    speedMaxKmh: num(r.speed_max),
     rangeUsedKm,
     startLabel: r.start_label ?? "Unknown location",
     endLabel: r.end_label ?? "Unknown location",
     outsideTempAvgC: num(r.outside_temp_avg),
     insideTempAvgC: num(r.inside_temp_avg),
-    powerMaxKw: r.power_max,
-    powerMinKw: r.power_min,
-    ascentM: r.ascent,
-    descentM: r.descent,
+    powerMaxKw: num(r.power_max),
+    powerMinKw: num(r.power_min),
+    ascentM: num(r.ascent),
+    descentM: num(r.descent),
     startRatedRangeKm: num(r.start_rated_range_km),
     endRatedRangeKm: num(r.end_rated_range_km),
     efficiencyWhPerKm: driveEfficiencyWhPerKm(rangeUsedKm, distanceKm, carEff),
@@ -134,12 +134,12 @@ export function mapDriveRow(r: DriveRow): DriveListItem {
 export function mapDrivePoint(r: PointRow): DrivePoint {
   return {
     t: r.date.getTime(),
-    speed: r.speed,
-    soc: r.battery_level,
+    speed: num(r.speed),
+    soc: num(r.battery_level),
     lat: num(r.latitude) ?? 0,
     lon: num(r.longitude) ?? 0,
-    elevation: r.elevation,
-    power: r.power,
+    elevation: num(r.elevation),
+    power: num(r.power),
   };
 }
 
