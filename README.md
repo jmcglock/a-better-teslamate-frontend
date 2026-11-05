@@ -13,7 +13,7 @@ TeslaMate itself is untouched.
 Prefer a **release tag** (semver). Every main build also gets an immutable `sha-<short>` tag. No floating `latest`.
 
 ```bash
-IMG=ghcr.io/jmcglock/a-better-teslamate-frontend:1.4.1
+IMG=ghcr.io/jmcglock/a-better-teslamate-frontend:1.5.0
 # or pin a build: ...:sha-<short> from Packages / Actions
 
 docker pull "$IMG"
@@ -31,7 +31,11 @@ docker compose up -d
 ```
 
 Image: `ghcr.io/jmcglock/a-better-teslamate-frontend`  
-Tags: `1.4.1` / `v1.4.1` on releases; `sha-<short>` on every main build.
+Tags: `1.5.0` / `v1.5.0` on releases; `sha-<short>` on every main build.
+
+## What's in 1.5.0
+
+- Drives and Stats: **Export all** downloads a single ZIP with `drives.csv`, `charges.csv`, and `summary.json` for the current car and time window. It uses the same filters as the individual CSV exports and needs no new dependency.
 
 ## What's in 1.4.0
 

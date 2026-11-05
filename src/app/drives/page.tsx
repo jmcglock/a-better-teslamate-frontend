@@ -49,6 +49,12 @@ export default async function DrivesPage({
         <div className="flex items-center gap-3">
           <h1 className="font-[family-name:var(--font-cond)] text-2xl font-semibold tracking-tight">Drives</h1>
           <ExportCsvLink path="/api/drives/export" car={carId} range={range} />
+          <a
+            href={historyHref("/api/export/all", { car: carId, range })}
+            className="pressable rounded-full border border-line px-3 py-1 text-sm text-ink-2 hover:text-ink"
+          >
+            Export all
+          </a>
         </div>
         <div className="flex flex-wrap items-center gap-4">
           {cars.length > 1 && (

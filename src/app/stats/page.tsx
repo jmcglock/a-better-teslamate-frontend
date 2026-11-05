@@ -73,11 +73,20 @@ export default async function StatsPage({
   });
   const currency = process.env.CURRENCY ?? "$";
   const carForLinks = cars.length > 1 ? car.id : null;
+  const exportRange = range === "12m" ? "12m" : "all";
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <h1 className="font-[family-name:var(--font-cond)] text-2xl font-semibold tracking-tight">Stats</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="font-[family-name:var(--font-cond)] text-2xl font-semibold tracking-tight">Stats</h1>
+          <a
+            href={historyHref("/api/export/all", { car: carForLinks, range: exportRange })}
+            className="pressable rounded-full border border-line px-3 py-1 text-sm text-ink-2 hover:text-ink"
+          >
+            Export all
+          </a>
+        </div>
         <div className="flex flex-wrap items-center gap-4">
           {cars.length > 1 && (
             <FilterPills

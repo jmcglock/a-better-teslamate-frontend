@@ -51,31 +51,60 @@ const CHARGE_HEADERS = [
   "cost",
 ] as const;
 
+export type ExportFilters = {
+  carId: number | null;
+  range: HistoryRangeKey;
+  months: number | null;
+};
+
 export async function buildDrivesExport(url: URL, deps: DrivesExportDeps): Promise<Response & { filename: string }> {
-  const filters = filtersFromUrl(url, deps.knownCarIds);
-  const items = await loadAll(deps.listDrives, filters);
+  const { filters, items } = await loadDrivesExport(url, deps);
   return csvAttachment(
     exportFilename("drives", filters.range, filters.carId),
-    serializeCsv(DRIVE_HEADERS, items.map(driveRow)),
+    drivesCsv(items),
   );
 }
 
 export async function buildChargesExport(url: URL, deps: ChargesExportDeps): Promise<Response & { filename: string }> {
-  const filters = filtersFromUrl(url, deps.knownCarIds);
-  const items = await loadAll(deps.listCharges, filters);
+  const { filters, items } = await loadChargesExport(url, deps);
   return csvAttachment(
     exportFilename("charges", filters.range, filters.carId),
-    serializeCsv(CHARGE_HEADERS, items.map(chargeRow)),
+    chargesCsv(items),
   );
 }
 
-function filtersFromUrl(url: URL, knownCarIds: number[]) {
+/** Shared `range` / `car` query parsing for every export endpoint. */
+export function historyExportFilters(url: URL, knownCarIds: number[]): ExportFilters {
   const range = parseHistoryRange(url.searchParams.get("range"));
   const carId = parseCarId(url.searchParams.get("car") ?? undefined, knownCarIds);
   return { carId, range, months: historyRangeMonths(range) };
 }
 
-function exportFilename(resource: "drives" | "charges", range: HistoryRangeKey, carId: number | null): string {
+export async function loadDrivesExport(
+  url: URL,
+  deps: DrivesExportDeps,
+): Promise<{ filters: ExportFilters; items: DriveListItem[] }> {
+  const filters = historyExportFilters(url, deps.knownCarIds);
+  return { filters, items: await loadAll(deps.listDrives, filters) };
+}
+
+export async function loadChargesExport(
+  url: URL,
+  deps: ChargesExportDeps,
+): Promise<{ filters: ExportFilters; items: ChargeListItem[] }> {
+  const filters = historyExportFilters(url, deps.knownCarIds);
+  return { filters, items: await loadAll(deps.listCharges, filters) };
+}
+
+export function drivesCsv(items: readonly DriveListItem[]): string {
+  return serializeCsv(DRIVE_HEADERS, items.map(driveRow));
+}
+
+export function chargesCsv(items: readonly ChargeListItem[]): string {
+  return serializeCsv(CHARGE_HEADERS, items.map(chargeRow));
+}
+
+export function exportFilename(resource: "drives" | "charges", range: HistoryRangeKey, carId: number | null): string {
   const car = carId === null ? "" : `-car-${carId}`;
   return `${resource}${car}-${range}.csv`;
 }
