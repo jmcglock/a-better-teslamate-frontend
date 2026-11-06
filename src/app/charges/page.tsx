@@ -4,6 +4,7 @@ import EmptyState from "@/components/EmptyState";
 import ExportCsvLink from "@/components/ExportCsvLink";
 import FilterPills from "@/components/FilterPills";
 import { listCharges, listTopChargeLocations } from "@/lib/db/charges";
+import { summarizeCharges } from "@/lib/chargeSummary";
 import { listCarIdentities } from "@/lib/db/stats";
 import { safe } from "@/lib/db/pool";
 import {
@@ -36,6 +37,7 @@ export default async function ChargesPage({
   const res = await safe(listCharges(page, { carId, months }));
   if (!res.ok) return <DataUnavailable service="database" detail={res.error} />;
   const { items: charges, hasMore } = res.data;
+  const summary = summarizeCharges(charges);
   const locationsRes = await safe(listTopChargeLocations({ carId, months, limit: 8 }));
   const topLocations = locationsRes.ok ? locationsRes.data : [];
   const filtered = carId !== null || range !== "all";
@@ -63,6 +65,28 @@ export default async function ChargesPage({
           />
         </div>
       </div>
+      {charges.length > 0 ? (
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-2xl border border-line bg-panel px-4 py-3">
+            <div className="text-xs uppercase tracking-wide text-ink-2">Sessions</div>
+            <div className="text-lg font-semibold">{summary.sessions}</div>
+          </div>
+          <div className="rounded-2xl border border-line bg-panel px-4 py-3">
+            <div className="text-xs uppercase tracking-wide text-ink-2">Energy</div>
+            <div className="text-lg font-semibold">{formatEnergy(summary.energyKwh)}</div>
+          </div>
+          <div className="rounded-2xl border border-line bg-panel px-4 py-3">
+            <div className="text-xs uppercase tracking-wide text-ink-2">Cost</div>
+            <div className="text-lg font-semibold">{formatCost(summary.cost, currency)}</div>
+          </div>
+          <div className="rounded-2xl border border-line bg-panel px-4 py-3">
+            <div className="text-xs uppercase tracking-wide text-ink-2">Avg cost/kWh</div>
+            <div className="text-lg font-semibold">
+              {summary.avgCostPerKwh === null ? "—" : formatCost(summary.avgCostPerKwh, currency)}
+            </div>
+          </div>
+        </div>
+      ) : null}
       {charges.length === 0 ? (
         <EmptyState
           title={filtered ? "No charges in this view" : "No charging sessions"}
