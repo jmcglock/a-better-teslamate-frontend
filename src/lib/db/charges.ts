@@ -116,6 +116,56 @@ export async function listCharges(
   });
 }
 
+export type ChargeLocationSummary = {
+  location: string;
+  count: number;
+  energyKwh: number;
+  cost: number;
+  lastCharged: string;
+};
+
+export async function listTopChargeLocations(
+  opts: { carId?: number | null; months?: number | null; limit?: number } = {},
+): Promise<ChargeLocationSummary[]> {
+  const limit = Math.max(1, Math.min(opts.limit ?? 8, 50));
+  const params: unknown[] = [];
+  const where = ["cp.charge_energy_added > 0.1"];
+  if (opts.carId != null) {
+    params.push(opts.carId);
+    where.push(`cp.car_id = $${params.length}`);
+  }
+  const monthSql = sinceMonthsSql("cp.start_date", opts.months ?? null, params);
+  const locationSql = "COALESCE(g.name, a.city, a.display_name)";
+  const rows = await q<{
+    location: string | null;
+    count: string | number;
+    energy: string | number | null;
+    cost: string | number | null;
+    last_charged: Date;
+  }>(
+    `SELECT ${locationSql} AS location, COUNT(*) AS count,
+            COALESCE(SUM(cp.charge_energy_added), 0) AS energy,
+            COALESCE(SUM(cp.cost), 0) AS cost,
+            MAX(cp.start_date) AS last_charged
+     FROM charging_processes cp
+     JOIN cars c ON c.id = cp.car_id
+     LEFT JOIN addresses a ON a.id = cp.address_id
+     LEFT JOIN geofences g ON g.id = cp.geofence_id
+     WHERE ${where.join(" AND ")}${monthSql}
+     GROUP BY ${locationSql}
+     ORDER BY count DESC, energy DESC
+     LIMIT $${params.length + 1}`,
+    [...params, limit],
+  );
+  return rows.map((r) => ({
+    location: r.location ?? "Unknown location",
+    count: Number(r.count),
+    energyKwh: Number(r.energy ?? 0),
+    cost: Number(r.cost ?? 0),
+    lastCharged: r.last_charged.toISOString(),
+  }));
+}
+
 export async function getCharge(id: number): Promise<ChargeDetail | null> {
   return cached(`charge:${id}`, CHARGE_TTL_MS, async () => {
     const rows = await q<ChargeRow>(`${CHARGE_SELECT} WHERE cp.id = $1`, [id]);
