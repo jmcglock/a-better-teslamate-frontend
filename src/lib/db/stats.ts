@@ -84,6 +84,36 @@ export async function getMonthlyEfficiency(
  * The chart follows `range`. Pass `"all"` for a stable degradation baseline;
  * the previous page used a fixed 24-month limit.
  */
+export type EfficiencyTempPoint = { tempC: number; whPerKm: number; distanceKm: number };
+
+export async function getEfficiencyByTemp(
+  carId: number,
+  range: StatsRangeKey = "12m",
+): Promise<EfficiencyTempPoint[]> {
+  const months = statsRangeMonths(range);
+  return cached(`effTemp:${carId}:${range}`, STATS_TTL_MS, async () => {
+    const params: unknown[] = [carId];
+    const rows = await q<{ outside_temp_avg: string | number | null; efficiency: string | number | null; distance: string | number | null; range_used_km: string | number | null }>(`
+      SELECT d.outside_temp_avg, c.efficiency, d.distance,
+             (d.start_rated_range_km - d.end_rated_range_km) AS range_used_km
+      FROM drives d JOIN cars c ON c.id = d.car_id
+      WHERE d.car_id = $1 AND d.distance > 0.1 AND d.outside_temp_avg IS NOT NULL${sinceMonthsSql("d.start_date", months, params)}
+    `, params);
+    const out: EfficiencyTempPoint[] = [];
+    for (const r of rows) {
+      const temp = num(r.outside_temp_avg);
+      const carEff = num(r.efficiency);
+      const dist = num(r.distance);
+      const rangeUsed = num(r.range_used_km);
+      if (temp === null || carEff === null || dist === null || rangeUsed === null || dist <= 0 || rangeUsed <= 0) continue;
+      const whPerKm = (rangeUsed * carEff * 1000) / dist;
+      if (!Number.isFinite(whPerKm)) continue;
+      out.push({ tempC: temp, whPerKm: Math.round(whPerKm), distanceKm: Math.round(dist) });
+    }
+    return out;
+  });
+}
+
 export async function getBatteryHealth(
   carId: number,
   range: StatsRangeKey = "12m",
