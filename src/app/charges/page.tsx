@@ -3,7 +3,7 @@ import DataUnavailable from "@/components/DataUnavailable";
 import EmptyState from "@/components/EmptyState";
 import ExportCsvLink from "@/components/ExportCsvLink";
 import FilterPills from "@/components/FilterPills";
-import { listCharges } from "@/lib/db/charges";
+import { listCharges, listTopChargeLocations } from "@/lib/db/charges";
 import { listCarIdentities } from "@/lib/db/stats";
 import { safe } from "@/lib/db/pool";
 import {
@@ -32,9 +32,12 @@ export default async function ChargesPage({
   const cars = carsRes.data;
   const carId = parseCarId(sp.car, cars.map((car) => car.id));
 
-  const res = await safe(listCharges(page, { carId, months: historyRangeMonths(range) }));
+  const months = historyRangeMonths(range);
+  const res = await safe(listCharges(page, { carId, months }));
   if (!res.ok) return <DataUnavailable service="database" detail={res.error} />;
   const { items: charges, hasMore } = res.data;
+  const locationsRes = await safe(listTopChargeLocations({ carId, months, limit: 8 }));
+  const topLocations = locationsRes.ok ? locationsRes.data : [];
   const filtered = carId !== null || range !== "all";
   const href = (nextPage: number) => historyHref("/charges", { car: carId, range, page: nextPage });
 
@@ -91,6 +94,21 @@ export default async function ChargesPage({
           ))}
         </ul>
       )}
+      {topLocations.length > 0 ? (
+        <section className="mt-6">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-2">Top charging locations</h2>
+          <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-panel">
+            {topLocations.map((loc) => (
+              <li key={loc.location} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                <span className="min-w-0 flex-1 truncate">{loc.location}</span>
+                <span className="text-ink-2">{loc.count} sessions</span>
+                <span>{formatEnergy(loc.energyKwh)}</span>
+                <span className="text-ink-2">{formatCost(loc.cost, currency)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <nav className="mt-4 flex gap-3 text-sm">
         {page > 1 && <Link className="pressable text-ink-2 hover:text-ink" href={href(page - 1)}>← Newer</Link>}
         {hasMore && <Link className="pressable text-ink-2 hover:text-ink" href={href(page + 1)}>Older →</Link>}
