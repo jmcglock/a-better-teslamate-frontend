@@ -114,6 +114,29 @@ export async function getEfficiencyByTemp(
   });
 }
 
+export type DriveDay = { date: string; count: number; distanceKm: number };
+
+export async function getDriveDays(
+  carId: number,
+  range: StatsRangeKey = "12m",
+): Promise<DriveDay[]> {
+  const months = statsRangeMonths(range);
+  return cached(`driveDays:${carId}:${range}`, STATS_TTL_MS, async () => {
+    const params: unknown[] = [carId];
+    const rows = await q<{ d: Date; c: string | number; dist: string | number | null }>(`
+      SELECT date_trunc('day', d.start_date) AS d, count(*) AS c, sum(d.distance) AS dist
+      FROM drives d
+      WHERE d.car_id = $1 AND d.distance > 0.1${sinceMonthsSql("d.start_date", months, params)}
+      GROUP BY 1 ORDER BY 1
+    `, params);
+    return rows.map((r) => ({
+      date: r.d.toISOString().slice(0, 10),
+      count: Number(r.c),
+      distanceKm: Math.round(num(r.dist) ?? 0),
+    }));
+  });
+}
+
 export async function getBatteryHealth(
   carId: number,
   range: StatsRangeKey = "12m",
