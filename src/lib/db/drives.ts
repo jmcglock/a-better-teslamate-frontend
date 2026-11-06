@@ -1,6 +1,9 @@
+import { cached } from "@/lib/cache";
 import { num } from "@/lib/format";
 import { sinceMonthsSql } from "./range";
 import { q } from "./pool";
+
+const DRIVE_TTL_MS = 30_000;
 
 export type DriveRow = {
   id: number; start_date: Date; end_date: Date | null;
@@ -175,41 +178,49 @@ export async function listDrives(
   opts: DriveListOpts & { pageSize?: number } = {},
 ): Promise<{ items: DriveListItem[]; hasMore: boolean }> {
   const pageSize = opts.pageSize ?? 50;
-  const params: unknown[] = [pageSize + 1, (page - 1) * pageSize];
-  const rows = await q<DriveRow>(
-    `${DRIVE_SELECT} WHERE ${driveListWhere(opts, params)} ORDER BY d.start_date DESC LIMIT $1 OFFSET $2`,
-    params,
-  );
-  return { items: rows.slice(0, pageSize).map(mapDriveRow), hasMore: rows.length > pageSize };
+  const key = `drives:${page}:${pageSize}:${opts.carId ?? "all"}:${opts.months ?? "all"}`;
+  return cached(key, DRIVE_TTL_MS, async () => {
+    const params: unknown[] = [pageSize + 1, (page - 1) * pageSize];
+    const rows = await q<DriveRow>(
+      `${DRIVE_SELECT} WHERE ${driveListWhere(opts, params)} ORDER BY d.start_date DESC LIMIT $1 OFFSET $2`,
+      params,
+    );
+    return { items: rows.slice(0, pageSize).map(mapDriveRow), hasMore: rows.length > pageSize };
+  });
 }
 
 /** Count, distance, and driving time for the same car and calendar window as the drives list. */
 export async function getDriveTotals(opts: DriveListOpts = {}): Promise<DriveTotals> {
-  const params: unknown[] = [];
-  const rows = await q<DriveTotalsRow>(
-    `SELECT count(*)::int AS count,
-            coalesce(sum(d.distance), 0) AS distance_km,
-            coalesce(sum(d.duration_min), 0) AS duration_min
-     FROM drives d
-     WHERE ${driveListWhere(opts, params)}`,
-    params,
-  );
-  return mapDriveTotals(rows[0]);
+  const key = `driveTotals:${opts.carId ?? "all"}:${opts.months ?? "all"}`;
+  return cached(key, DRIVE_TTL_MS, async () => {
+    const params: unknown[] = [];
+    const rows = await q<DriveTotalsRow>(
+      `SELECT count(*)::int AS count,
+              coalesce(sum(d.distance), 0) AS distance_km,
+              coalesce(sum(d.duration_min), 0) AS duration_min
+       FROM drives d
+       WHERE ${driveListWhere(opts, params)}`,
+      params,
+    );
+    return mapDriveTotals(rows[0]);
+  });
 }
 
 export async function getDrive(id: number): Promise<DriveDetail | null> {
-  const rows = await q<DriveRow>(`${DRIVE_SELECT} WHERE d.id = $1`, [id]);
-  if (rows.length === 0) return null;
-  const points = await q<PointRow>(
-    `SELECT date, speed, battery_level, latitude, longitude, elevation, power FROM (
-       SELECT p.date, p.speed, p.battery_level, p.latitude, p.longitude, p.elevation, p.power,
-              row_number() OVER (ORDER BY p.date) AS rn,
-              count(*) OVER () AS total
-       FROM positions p WHERE p.drive_id = $1
-     ) t
-     WHERE rn % greatest(1, ceil(total::numeric / 500)::int) = 0 OR rn = 1 OR rn = total
-     ORDER BY date`,
-    [id],
-  );
-  return { ...mapDriveRow(rows[0]), points: points.map(mapDrivePoint) };
+  return cached(`drive:${id}`, DRIVE_TTL_MS, async () => {
+    const rows = await q<DriveRow>(`${DRIVE_SELECT} WHERE d.id = $1`, [id]);
+    if (rows.length === 0) return null;
+    const points = await q<PointRow>(
+      `SELECT date, speed, battery_level, latitude, longitude, elevation, power FROM (
+         SELECT p.date, p.speed, p.battery_level, p.latitude, p.longitude, p.elevation, p.power,
+                row_number() OVER (ORDER BY p.date) AS rn,
+                count(*) OVER () AS total
+         FROM positions p WHERE p.drive_id = $1
+       ) t
+       WHERE rn % greatest(1, ceil(total::numeric / 500)::int) = 0 OR rn = 1 OR rn = total
+       ORDER BY date`,
+      [id],
+    );
+    return { ...mapDriveRow(rows[0]), points: points.map(mapDrivePoint) };
+  });
 }

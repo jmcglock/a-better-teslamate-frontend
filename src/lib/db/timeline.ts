@@ -1,4 +1,7 @@
+import { cached } from "@/lib/cache";
 import { q } from "./pool";
+
+const TIMELINE_TTL_MS = 30_000;
 
 export type StateRow = {
   id: number;
@@ -39,22 +42,25 @@ export async function listStates(
   pageSize = 50,
   carId?: number | null,
 ): Promise<{ items: StateItem[]; hasMore: boolean }> {
-  const params: unknown[] = [pageSize + 1, (page - 1) * pageSize];
-  let where = "";
-  if (carId != null) {
-    where = "WHERE s.car_id = $3";
-    params.push(carId);
-  }
-  const rows = await q<StateRow>(
-    `
-    SELECT s.id, s.state::text AS state, s.start_date, s.end_date, c.name AS car_name, s.car_id
-    FROM states s
-    JOIN cars c ON c.id = s.car_id
-    ${where}
-    ORDER BY s.start_date DESC
-    LIMIT $1 OFFSET $2
-    `,
-    params,
-  );
-  return { items: rows.slice(0, pageSize).map(mapStateRow), hasMore: rows.length > pageSize };
+  const key = `states:${page}:${pageSize}:${carId ?? "all"}`;
+  return cached(key, TIMELINE_TTL_MS, async () => {
+    const params: unknown[] = [pageSize + 1, (page - 1) * pageSize];
+    let where = "";
+    if (carId != null) {
+      where = "WHERE s.car_id = $3";
+      params.push(carId);
+    }
+    const rows = await q<StateRow>(
+      `
+      SELECT s.id, s.state::text AS state, s.start_date, s.end_date, c.name AS car_name, s.car_id
+      FROM states s
+      JOIN cars c ON c.id = s.car_id
+      ${where}
+      ORDER BY s.start_date DESC
+      LIMIT $1 OFFSET $2
+      `,
+      params,
+    );
+    return { items: rows.slice(0, pageSize).map(mapStateRow), hasMore: rows.length > pageSize };
+  });
 }

@@ -1,4 +1,6 @@
 import { cached } from "@/lib/cache";
+
+const CAR_IDENTITY_TTL_MS = 60_000;
 import { num } from "@/lib/format";
 import { sinceMonthsSql } from "./range";
 import { q } from "./pool";
@@ -37,7 +39,9 @@ export function drainPctPerDay(socStart: number, socEnd: number, hours: number):
 }
 
 export function monthLabel(d: Date): string {
-  return d.toLocaleDateString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
+  const month = d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+  const year = String(d.getUTCFullYear()).slice(-2);
+  return `${month} ${year}`;
 }
 
 type MonthRow = { month: Date; v: string | number | null };
@@ -270,20 +274,19 @@ export function newCarRatedRangeKm(car: {
 }
 
 export async function listCarIdentities(): Promise<CarIdentity[]> {
-  const rows = await q<CarIdentityRow>(`
-    SELECT id, name, model, marketing_name, trim_badging, vin, efficiency
-    FROM cars
-    ORDER BY display_priority NULLS LAST, id
-  `);
-  return rows.map(mapCarIdentity);
+  return cached("carIdentities", CAR_IDENTITY_TTL_MS, async () => {
+    const rows = await q<CarIdentityRow>(`
+      SELECT id, name, model, marketing_name, trim_badging, vin, efficiency
+      FROM cars
+      ORDER BY display_priority NULLS LAST, id
+    `);
+    return rows.map(mapCarIdentity);
+  });
 }
 
 export async function getCarIdentity(carId: number): Promise<CarIdentity | null> {
-  const rows = await q<CarIdentityRow>(`
-    SELECT id, name, model, marketing_name, trim_badging, vin, efficiency
-    FROM cars WHERE id = $1
-  `, [carId]);
-  return rows[0] ? mapCarIdentity(rows[0]) : null;
+  const cars = await listCarIdentities();
+  return cars.find((c) => c.id === carId) ?? null;
 }
 
 export async function getPrimaryCarIdentity(): Promise<CarIdentity | null> {

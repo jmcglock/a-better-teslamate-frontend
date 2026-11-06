@@ -1,7 +1,10 @@
+import { cached } from "@/lib/cache";
 import { num } from "@/lib/format";
 import { mapChargeRow, type ChargeListItem, type ChargeRow } from "./charges";
 import { mapDriveRow, type DriveListItem, type DriveRow } from "./drives";
 import { q } from "./pool";
+
+const ACTIVITY_TTL_MS = 30_000;
 
 export type PeriodTotals = {
   distanceKm: number;
@@ -117,13 +120,15 @@ function startOfLocalWeek(d = new Date()): Date {
 }
 
 export async function getCarActivity(carId: number): Promise<CarActivity> {
-  const [drive, charge, today, week] = await Promise.all([
-    lastDrive(carId),
-    lastCharge(carId),
-    periodTotals(carId, startOfLocalDay()),
-    periodTotals(carId, startOfLocalWeek()),
-  ]);
-  return { carId, lastDrive: drive, lastCharge: charge, today, week };
+  return cached(`activity:${carId}`, ACTIVITY_TTL_MS, async () => {
+    const [drive, charge, today, week] = await Promise.all([
+      lastDrive(carId),
+      lastCharge(carId),
+      periodTotals(carId, startOfLocalDay()),
+      periodTotals(carId, startOfLocalWeek()),
+    ]);
+    return { carId, lastDrive: drive, lastCharge: charge, today, week };
+  });
 }
 
 export async function getDashboardActivity(carIds: number[]): Promise<Record<number, CarActivity>> {

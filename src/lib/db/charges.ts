@@ -1,6 +1,9 @@
+import { cached } from "@/lib/cache";
 import { num } from "@/lib/format";
 import { sinceMonthsSql } from "./range";
 import { q } from "./pool";
+
+const CHARGE_TTL_MS = 30_000;
 
 export type ChargeRow = {
   id: number; start_date: Date; end_date: Date | null;
@@ -97,32 +100,37 @@ export async function listCharges(
   opts: { pageSize?: number; carId?: number | null; months?: number | null } = {},
 ): Promise<{ items: ChargeListItem[]; hasMore: boolean }> {
   const pageSize = opts.pageSize ?? 50;
-  const params: unknown[] = [pageSize + 1, (page - 1) * pageSize];
-  const where = ["cp.charge_energy_added > 0.1"];
-  if (opts.carId != null) {
-    params.push(opts.carId);
-    where.push(`cp.car_id = $${params.length}`);
-  }
-  const rows = await q<ChargeRow>(
-    `${CHARGE_SELECT} WHERE ${where.join(" AND ")}${sinceMonthsSql("cp.start_date", opts.months ?? null, params)} ORDER BY cp.start_date DESC LIMIT $1 OFFSET $2`,
-    params,
-  );
-  return { items: rows.slice(0, pageSize).map(mapChargeRow), hasMore: rows.length > pageSize };
+  const key = `charges:${page}:${pageSize}:${opts.carId ?? "all"}:${opts.months ?? "all"}`;
+  return cached(key, CHARGE_TTL_MS, async () => {
+    const params: unknown[] = [pageSize + 1, (page - 1) * pageSize];
+    const where = ["cp.charge_energy_added > 0.1"];
+    if (opts.carId != null) {
+      params.push(opts.carId);
+      where.push(`cp.car_id = $${params.length}`);
+    }
+    const rows = await q<ChargeRow>(
+      `${CHARGE_SELECT} WHERE ${where.join(" AND ")}${sinceMonthsSql("cp.start_date", opts.months ?? null, params)} ORDER BY cp.start_date DESC LIMIT $1 OFFSET $2`,
+      params,
+    );
+    return { items: rows.slice(0, pageSize).map(mapChargeRow), hasMore: rows.length > pageSize };
+  });
 }
 
 export async function getCharge(id: number): Promise<ChargeDetail | null> {
-  const rows = await q<ChargeRow>(`${CHARGE_SELECT} WHERE cp.id = $1`, [id]);
-  if (rows.length === 0) return null;
-  const points = await q<CurveRow>(
-    `SELECT date, charger_power, battery_level FROM (
-       SELECT ch.date, ch.charger_power, ch.battery_level,
-              row_number() OVER (ORDER BY ch.date) AS rn,
-              count(*) OVER () AS total
-       FROM charges ch WHERE ch.charging_process_id = $1
-     ) t
-     WHERE rn % greatest(1, ceil(total::numeric / 500)::int) = 0 OR rn = 1 OR rn = total
-     ORDER BY date`,
-    [id],
-  );
-  return { ...mapChargeRow(rows[0]), points: points.map(mapCurvePoint) };
+  return cached(`charge:${id}`, CHARGE_TTL_MS, async () => {
+    const rows = await q<ChargeRow>(`${CHARGE_SELECT} WHERE cp.id = $1`, [id]);
+    if (rows.length === 0) return null;
+    const points = await q<CurveRow>(
+      `SELECT date, charger_power, battery_level FROM (
+         SELECT ch.date, ch.charger_power, ch.battery_level,
+                row_number() OVER (ORDER BY ch.date) AS rn,
+                count(*) OVER () AS total
+         FROM charges ch WHERE ch.charging_process_id = $1
+       ) t
+       WHERE rn % greatest(1, ceil(total::numeric / 500)::int) = 0 OR rn = 1 OR rn = total
+       ORDER BY date`,
+      [id],
+    );
+    return { ...mapChargeRow(rows[0]), points: points.map(mapCurvePoint) };
+  });
 }

@@ -1,4 +1,7 @@
+import { cached } from "@/lib/cache";
 import { q } from "./pool";
+
+const UPDATES_TTL_MS = 30_000;
 
 export type UpdateRow = {
   id: number;
@@ -37,15 +40,18 @@ export async function listUpdates(
   page: number,
   pageSize = 50,
 ): Promise<{ items: UpdateItem[]; hasMore: boolean }> {
-  const rows = await q<UpdateRow>(
-    `
-    SELECT u.id, u.version, u.start_date, u.end_date, c.name AS car_name, u.car_id
-    FROM updates u
-    JOIN cars c ON c.id = u.car_id
-    ORDER BY u.start_date DESC
-    LIMIT $1 OFFSET $2
-    `,
-    [pageSize + 1, (page - 1) * pageSize],
-  );
-  return { items: rows.slice(0, pageSize).map(mapUpdateRow), hasMore: rows.length > pageSize };
+  const key = `updates:${page}:${pageSize}`;
+  return cached(key, UPDATES_TTL_MS, async () => {
+    const rows = await q<UpdateRow>(
+      `
+      SELECT u.id, u.version, u.start_date, u.end_date, c.name AS car_name, u.car_id
+      FROM updates u
+      JOIN cars c ON c.id = u.car_id
+      ORDER BY u.start_date DESC
+      LIMIT $1 OFFSET $2
+      `,
+      [pageSize + 1, (page - 1) * pageSize],
+    );
+    return { items: rows.slice(0, pageSize).map(mapUpdateRow), hasMore: rows.length > pageSize };
+  });
 }

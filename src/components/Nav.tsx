@@ -35,7 +35,7 @@ export default function Nav() {
       }`}
     >
       <nav className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-3 sm:px-6 lg:px-8">
-        <Link href="/" prefetch className="pressable mr-3 flex min-w-0 items-center gap-2.5 leading-tight">
+        <Link href="/" prefetch={false} className="pressable mr-3 flex min-w-0 items-center gap-2.5 leading-tight">
           <img
             src="/logo.png"
             alt=""
@@ -57,7 +57,7 @@ export default function Nav() {
               <Link
                 key={href}
                 href={href}
-                prefetch
+                prefetch={false}
                 className={`pressable shrink-0 rounded-full px-2.5 py-1.5 text-sm sm:px-3 ${
                   active
                     ? "bg-accent text-white shadow-[0_0_0_1px_color-mix(in_oklab,var(--accent)_40%,transparent)]"

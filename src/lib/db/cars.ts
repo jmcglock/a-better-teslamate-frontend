@@ -1,3 +1,4 @@
+import { cached } from "@/lib/cache";
 import { num } from "@/lib/format";
 import { q } from "./pool";
 
@@ -39,17 +40,19 @@ export function mapCarRow(r: CarRow): CarCard {
 }
 
 export async function listCarCards(): Promise<CarCard[]> {
-  const rows = await q<CarRow>(`
-    SELECT c.id, c.name, c.model, c.marketing_name,
-           p.latitude, p.longitude, p.battery_level, p.usable_battery_level,
-           p.rated_battery_range_km, p.ideal_battery_range_km, p.odometer,
-           p.inside_temp, p.outside_temp, p.date AS position_date,
-           (SELECT s.state FROM states s WHERE s.car_id = c.id ORDER BY s.start_date DESC LIMIT 1) AS db_state
-    FROM cars c
-    LEFT JOIN LATERAL (
-      SELECT * FROM positions p WHERE p.car_id = c.id ORDER BY p.date DESC LIMIT 1
-    ) p ON true
-    ORDER BY c.display_priority NULLS LAST, c.id
-  `);
-  return rows.map(mapCarRow);
+  return cached("carCards", 15_000, async () => {
+    const rows = await q<CarRow>(`
+      SELECT c.id, c.name, c.model, c.marketing_name,
+             p.latitude, p.longitude, p.battery_level, p.usable_battery_level,
+             p.rated_battery_range_km, p.ideal_battery_range_km, p.odometer,
+             p.inside_temp, p.outside_temp, p.date AS position_date,
+             (SELECT s.state FROM states s WHERE s.car_id = c.id ORDER BY s.start_date DESC LIMIT 1) AS db_state
+      FROM cars c
+      LEFT JOIN LATERAL (
+        SELECT * FROM positions p WHERE p.car_id = c.id ORDER BY p.date DESC LIMIT 1
+      ) p ON true
+      ORDER BY c.display_priority NULLS LAST, c.id
+    `);
+    return rows.map(mapCarRow);
+  });
 }

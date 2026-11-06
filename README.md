@@ -13,7 +13,7 @@ TeslaMate itself is untouched.
 Prefer a **release tag** (semver). Every main build also gets an immutable `sha-<short>` tag. No floating `latest`.
 
 ```bash
-IMG=ghcr.io/jmcglock/a-better-teslamate-frontend:1.5.0
+IMG=ghcr.io/jmcglock/a-better-teslamate-frontend:1.5.4
 # or pin a build: ...:sha-<short> from Packages / Actions
 
 docker pull "$IMG"
@@ -31,7 +31,12 @@ docker compose up -d
 ```
 
 Image: `ghcr.io/jmcglock/a-better-teslamate-frontend`  
-Tags: `1.5.0` / `v1.5.0` on releases; `sha-<short>` on every main build.
+Tags: `1.5.4` / `v1.5.4` on releases; `sha-<short>` on every main build.
+
+## What's in 1.5.4
+
+- Performance: server-side caching for car identities, car cards, drives, charges, timeline states, updates, geofences, and activity; selected car resolved from the already-fetched list; parallel settings fetches on battery/calendar/efficiency/stats; disabled link prefetching in nav; reduced Inter font payload.
+- Bug fixes: calendar month handling and `monthLabel` now renders `Jul 26`.
 
 ## What's in 1.5.0
 

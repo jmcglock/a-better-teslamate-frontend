@@ -7,11 +7,9 @@ import { historyHref } from "@/lib/db/range";
 import {
   STATS_RANGES,
   getBatteryHealth,
-  getCarIdentity,
   getMonthlyChargeCost,
   getMonthlyEfficiency,
   getMonthlyMileage,
-  getPrimaryCarIdentity,
   getVampireDrain,
   listCarIdentities,
   newCarRatedRangeKm,
@@ -34,18 +32,18 @@ export default async function StatsPage({
   const requestedId = sp.car ? Number(sp.car) : null;
   const range = parseStatsRange(sp.range);
 
-  const carsRes = await safe(listCarIdentities());
+  const [carsRes, settingsRes] = await Promise.all([safe(listCarIdentities()), safe(getSettings())]);
   if (!carsRes.ok) return <DataUnavailable service="database" detail={carsRes.error} />;
   const cars = carsRes.data;
   if (cars.length === 0) {
     return <DataUnavailable service="database" detail="No cars found. Sign in to TeslaMate first." />;
   }
 
-  let car =
-    requestedId !== null && Number.isInteger(requestedId)
-      ? await getCarIdentity(requestedId)
-      : null;
-  if (!car) car = (await getPrimaryCarIdentity()) ?? cars[0];
+  let car = cars[0];
+  if (requestedId !== null && Number.isInteger(requestedId)) {
+    const found = cars.find((c) => c.id === requestedId);
+    if (found) car = found;
+  }
 
   const res = await safe(
     Promise.all([
@@ -56,11 +54,12 @@ export default async function StatsPage({
       getVampireDrain(car.id),
       getMonthlyChargeCost(car.id, range),
       chargeSpendByPlace(car.id, statsRangeMonths(range)),
-      getSettings(),
     ]),
   );
   if (!res.ok) return <DataUnavailable service="database" detail={res.error} />;
-  const [mileage, efficiency, health, healthAll, drain, chargeCost, places, settings] = res.data;
+  const [mileage, efficiency, health, healthAll, drain, chargeCost, places] = res.data;
+  const settings = settingsRes.ok ? settingsRes.data : null;
+  if (!settings) return <DataUnavailable service="database" detail={settingsRes.ok ? "No settings" : settingsRes.error} />;
   const newKm = newCarRatedRangeKm({
     model: car.model,
     marketingName: car.marketingName,

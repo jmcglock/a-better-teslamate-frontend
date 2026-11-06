@@ -1,7 +1,7 @@
 import DataUnavailable from "@/components/DataUnavailable";
 import FilterPills from "@/components/FilterPills";
 import EfficiencyTempChart from "@/components/charts/EfficiencyTempChart";
-import { getCarIdentity, getPrimaryCarIdentity, listCarIdentities } from "@/lib/db/stats";
+import { listCarIdentities } from "@/lib/db/stats";
 import { getEfficiencyByTemp } from "@/lib/db/stats";
 import { getSettings } from "@/lib/db/settings";
 import { safe } from "@/lib/db/pool";
@@ -20,8 +20,11 @@ export default async function EfficiencyPage({ searchParams }: { searchParams: P
   const cars = carsRes.data;
   if (cars.length === 0) return <DataUnavailable service="database" detail="No cars found." />;
 
-  let car = requestedId !== null && Number.isInteger(requestedId) ? await getCarIdentity(requestedId) : null;
-  if (!car) car = (await getPrimaryCarIdentity()) ?? cars[0];
+  let car = cars[0];
+  if (requestedId !== null && Number.isInteger(requestedId)) {
+    const found = cars.find((c) => c.id === requestedId);
+    if (found) car = found;
+  }
 
   const res = await safe(Promise.all([getEfficiencyByTemp(car.id, range), getSettings()]));
   if (!res.ok) return <DataUnavailable service="database" detail={res.error} />;

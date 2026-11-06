@@ -5,7 +5,7 @@ import Nav from "@/components/Nav";
 import { LiveProvider } from "@/lib/live/LiveContext";
 import "./globals.css";
 
-const sans = Inter({ subsets: ["latin"], variable: "--font-sans" });
+const sans = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap", variable: "--font-sans" });
 const cond = Inter_Tight({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-cond" });
 const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-mono" });
 

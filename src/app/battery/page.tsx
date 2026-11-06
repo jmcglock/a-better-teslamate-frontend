@@ -1,7 +1,7 @@
 import TimeSeriesPanel from "@/components/charts/TimeSeriesPanel";
 import DataUnavailable from "@/components/DataUnavailable";
 import FilterPills from "@/components/FilterPills";
-import { getBatteryHealth, getCarIdentity, getPrimaryCarIdentity, listCarIdentities, newCarRatedRangeKm, summarizeBatteryHealth } from "@/lib/db/stats";
+import { getBatteryHealth, listCarIdentities, newCarRatedRangeKm, summarizeBatteryHealth } from "@/lib/db/stats";
 import { getSettings } from "@/lib/db/settings";
 import { safe } from "@/lib/db/pool";
 import { historyHref } from "@/lib/db/range";
@@ -17,15 +17,16 @@ export default async function BatteryPage({
   const sp = await searchParams;
   const requestedId = sp.car ? Number(sp.car) : null;
 
-  const carsRes = await safe(listCarIdentities());
+  const [carsRes, settingsRes] = await Promise.all([safe(listCarIdentities()), safe(getSettings())]);
   if (!carsRes.ok) return <DataUnavailable service="database" detail={carsRes.error} />;
   const cars = carsRes.data;
   if (cars.length === 0) return <DataUnavailable service="database" detail="No cars found." />;
 
-  let car = requestedId !== null && Number.isInteger(requestedId) ? await getCarIdentity(requestedId) : null;
-  if (!car) car = (await getPrimaryCarIdentity()) ?? cars[0];
-
-  const settingsRes = await safe(getSettings());
+  let car = cars[0];
+  if (requestedId !== null && Number.isInteger(requestedId)) {
+    const found = cars.find((c) => c.id === requestedId);
+    if (found) car = found;
+  }
   const unit = settingsRes.ok ? settingsRes.data.unitOfLength : "km";
   const distUnit = unit === "mi" ? "mi" : "km";
   const toDist = (km: number | null) => (km === null ? null : Math.round(kmToUnit(km, unit === "mi" ? "mi" : "km")));
