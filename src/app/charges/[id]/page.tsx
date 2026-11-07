@@ -60,7 +60,9 @@ export default async function ChargePage({ params }: { params: Promise<{ id: str
               : `${formatDistance(charge.startRatedRangeKm, settings.unitOfLength, 0)} → ${formatDistance(charge.endRatedRangeKm, settings.unitOfLength, 0)}`}
           </dd>
           {rangeGained !== null && (
-            <p className="text-[11px] text-ink-2">+{formatDistance(rangeGained, settings.unitOfLength, 1)}</p>
+            <p className="text-[11px] text-ink-2">
+              {rangeGained >= 0 ? "+" : ""}{formatDistance(rangeGained, settings.unitOfLength, 1)}
+            </p>
           )}
         </div>
         <div><dt className="text-xs text-ink-2">Outside</dt><dd>{formatTemp(charge.outsideTempAvgC, settings.unitOfTemperature)}</dd></div>

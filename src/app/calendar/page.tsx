@@ -35,23 +35,32 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const byDate = new Map(days.map((d) => [d.date, d]));
 
   // Generate all days in range (last N months) for the grid.
-  const months = statsRangeMonths(range) ?? 12;
+  const months = statsRangeMonths(range);
   const end = new Date();
   const start = new Date();
-  start.setMonth(start.getMonth() - months);
+  if (months === null) {
+    const earliest = days.length ? days[0].date : null;
+    if (earliest) {
+      start.setTime(new Date(earliest + "T00:00:00Z").getTime());
+    } else {
+      start.setUTCMonth(start.getUTCMonth() - 36);
+    }
+  } else {
+    start.setUTCMonth(start.getUTCMonth() - months);
+  }
+  start.setUTCHours(0, 0, 0, 0);
   const allDays: string[] = [];
   const cursor = new Date(start);
-  cursor.setHours(0, 0, 0, 0);
   while (cursor <= end) {
     allDays.push(cursor.toISOString().slice(0, 10));
-    cursor.setDate(cursor.getDate() + 1);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
   // Group into weeks (Sun-Sat).
   const weeks: string[][] = [];
   let week: string[] = [];
   for (const d of allDays) {
-    const dow = new Date(d + "T00:00:00").getDay();
+    const dow = new Date(d + "T00:00:00Z").getUTCDay();
     if (dow === 0 && week.length) { weeks.push(week); week = []; }
     week.push(d);
   }
@@ -85,7 +94,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           {weeks.map((w, wi) => (
             <div key={wi} className="grid gap-[3px]" style={{ gridTemplateRows: "repeat(7, 12px)" }}>
               {Array.from({ length: 7 }).map((_, di) => {
-                const date = w.find((d) => new Date(d + "T00:00:00").getDay() === di);
+                const date = w.find((d) => new Date(d + "T00:00:00Z").getUTCDay() === di);
                 if (!date) return <div key={di} className="h-3 w-3" />;
                 const info = byDate.get(date);
                 const count = info?.count ?? 0;

@@ -27,7 +27,7 @@ const DRIVE_SELECT = `
          (d.start_rated_range_km - d.end_rated_range_km) AS range_used_km,
          d.outside_temp_avg, d.inside_temp_avg, d.power_max, d.power_min,
          d.ascent, d.descent, d.start_rated_range_km, d.end_rated_range_km,
-         c.efficiency,
+         c.efficiency, c.name AS car_name,
          COALESCE(gs.name, sa.city, sa.display_name) AS start_label,
          COALESCE(ge.name, ea.city, ea.display_name) AS end_label
   FROM drives d
@@ -46,8 +46,10 @@ const CHARGE_SELECT = `
          (SELECT max(ch.charger_power) FROM charges ch WHERE ch.charging_process_id = cp.id) AS max_power,
          (SELECT max(ch.charger_voltage) FROM charges ch WHERE ch.charging_process_id = cp.id) AS max_voltage,
          (SELECT bool_or(ch.fast_charger_present) FROM charges ch WHERE ch.charging_process_id = cp.id) AS fast_charger,
-         pos.latitude AS latitude, pos.longitude AS longitude
+         pos.latitude AS latitude, pos.longitude AS longitude,
+         c.name AS car_name
   FROM charging_processes cp
+  JOIN cars c ON c.id = cp.car_id
   LEFT JOIN addresses a ON a.id = cp.address_id
   LEFT JOIN geofences g ON g.id = cp.geofence_id
   LEFT JOIN positions pos ON pos.id = cp.position_id

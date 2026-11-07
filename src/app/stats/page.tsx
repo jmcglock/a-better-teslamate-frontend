@@ -72,7 +72,7 @@ export default async function StatsPage({
   });
   const currency = process.env.CURRENCY ?? "$";
   const carForLinks = cars.length > 1 ? car.id : null;
-  const exportRange = range === "12m" ? "12m" : "all";
+  const exportRange = range;
 
   return (
     <div>

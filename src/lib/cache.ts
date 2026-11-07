@@ -7,7 +7,10 @@ const store = new Map<string, Entry>();
 export async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
   const now = Date.now();
   const hit = store.get(key);
-  if (hit && hit.expires > now) return hit.value as T;
+  if (hit) {
+    if (hit.expires > now) return hit.value as T;
+    store.delete(key);
+  }
 
   const value = await fn();
   store.set(key, { value, expires: now + ttlMs });

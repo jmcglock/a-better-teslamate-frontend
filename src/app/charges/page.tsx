@@ -24,7 +24,8 @@ export default async function ChargesPage({
   searchParams: Promise<{ page?: string; car?: string; range?: string }>;
 }) {
   const sp = await searchParams;
-  const page = Math.max(1, Number(sp.page) || 1);
+  const rawPage = Number(sp.page);
+  const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.trunc(rawPage) : 1;
   const range = parseHistoryRange(sp.range);
   const currency = process.env.CURRENCY ?? "$";
 

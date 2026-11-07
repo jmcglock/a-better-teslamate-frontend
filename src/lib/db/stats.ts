@@ -318,7 +318,8 @@ export function summarizeBatteryHealth(
   series: { t: number; v: number | null }[],
   opts?: { newKm?: number | null; efficiency?: number | null },
 ): BatteryHealthSummary {
-  const vals = series.map((p) => p.v).filter((v): v is number => v !== null && v > 0);
+  const ordered = [...series].sort((a, b) => a.t - b.t);
+  const vals = ordered.map((p) => p.v).filter((v): v is number => v !== null && v > 0);
   if (vals.length === 0) {
     return {
       currentKm: null, peakKm: null, newKm: opts?.newKm ?? null,

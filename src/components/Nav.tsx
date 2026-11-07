@@ -35,7 +35,7 @@ export default function Nav() {
       }`}
     >
       <nav className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-3 sm:px-6 lg:px-8">
-        <Link href="/" prefetch={false} className="pressable mr-3 flex min-w-0 items-center gap-2.5 leading-tight">
+        <Link href="/" prefetch={false} className="pressable mr-3 flex shrink-0 items-center gap-2.5 leading-tight">
           <img
             src="/logo.png"
             alt=""
@@ -43,14 +43,14 @@ export default function Nav() {
             height={32}
             className="brand-logo h-8 w-8 shrink-0"
           />
-          <span className="min-w-0 flex flex-col">
-            <span className="truncate font-[family-name:var(--font-cond)] text-sm font-semibold tracking-[0.14em] text-ink">
+          <span className="hidden flex-col sm:flex">
+            <span className="font-[family-name:var(--font-cond)] text-sm font-semibold tracking-[0.14em] text-ink">
               A BETTER TESLAMATE
             </span>
-            <span className="truncate text-[10px] uppercase tracking-[0.22em] text-ink-2">Dashboard</span>
+            <span className="text-[10px] uppercase tracking-[0.22em] text-ink-2">Dashboard</span>
           </span>
         </Link>
-        <div className="ml-auto flex max-w-[min(100%,42rem)] items-center gap-1 overflow-x-auto sm:ml-0 sm:gap-1.5">
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto sm:gap-1.5">
           {links.map(({ href, label }) => {
             const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (

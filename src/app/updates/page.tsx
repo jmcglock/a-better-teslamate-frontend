@@ -12,7 +12,8 @@ export default async function UpdatesPage({
 }: {
   searchParams: Promise<{ page?: string }>;
 }) {
-  const page = Math.max(1, Number((await searchParams).page) || 1);
+  const rawPage = Number((await searchParams).page);
+  const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.trunc(rawPage) : 1;
   const res = await safe(listUpdates(page));
   if (!res.ok) return <DataUnavailable service="database" detail={res.error} />;
   const { items, hasMore } = res.data;
