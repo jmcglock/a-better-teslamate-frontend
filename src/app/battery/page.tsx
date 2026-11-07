@@ -1,4 +1,4 @@
-import TimeSeriesPanel from "@/components/charts/TimeSeriesPanel";
+import BatteryHealthChart from "@/components/charts/BatteryHealthChart";
 import DataUnavailable from "@/components/DataUnavailable";
 import FilterPills from "@/components/FilterPills";
 import { getBatteryHealth, listCarIdentities, newCarRatedRangeKm, summarizeBatteryHealth } from "@/lib/db/stats";
@@ -70,13 +70,11 @@ export default async function BatteryPage({
         <Stat label="Health" value={summary.healthPct === null ? "–" : `${Math.round(summary.healthPct)}%`} sub={summary.degradationPct === null ? undefined : `${Math.round(summary.degradationPct)}% degradation`} />
       </div>
 
-      <TimeSeriesPanel
+      <BatteryHealthChart
         title="Rated range · full-pack"
         unit={distUnit}
         color="#22c55e"
         data={trend.map((h) => ({ t: h.t, v: h.v === null ? null : toDist(h.v) }))}
-        formatValue={(v) => `${Math.round(v)} ${distUnit}`}
-        formatTick={(t) => new Date(t).toLocaleDateString("en-US", { month: "short", year: "2-digit" })}
       />
 
       {cars.length > 1 && (
