@@ -3,6 +3,9 @@
 type Entry = { value: unknown; expires: number };
 
 const store = new Map<string, Entry>();
+const inflight = new Map<string, Promise<unknown>>();
+/** Bumped on a full clear so a query that started earlier cannot refill the cache. */
+let epoch = 0;
 
 export async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
   const now = Date.now();
@@ -12,9 +15,20 @@ export async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>
     store.delete(key);
   }
 
-  const value = await fn();
-  store.set(key, { value, expires: now + ttlMs });
-  return value;
+  const pending = inflight.get(key);
+  if (pending) return pending as Promise<T>;
+
+  const ticket = epoch;
+  const promise = fn()
+    .then((value) => {
+      if (ticket === epoch) store.set(key, { value, expires: Date.now() + ttlMs });
+      return value;
+    })
+    .finally(() => {
+      if (inflight.get(key) === promise) inflight.delete(key);
+    });
+  inflight.set(key, promise);
+  return promise;
 }
 
 export function cacheGet<T>(key: string): T | undefined {
@@ -29,6 +43,8 @@ export function cacheSet(key: string, value: unknown, ttlMs: number): void {
 
 export function cacheClear(prefix?: string): void {
   if (!prefix) {
+    epoch += 1;
+    inflight.clear();
     store.clear();
     return;
   }

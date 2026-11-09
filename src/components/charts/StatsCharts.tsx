@@ -2,7 +2,7 @@
 
 import BarPanel from "./BarPanel";
 import TimeSeriesPanel from "./TimeSeriesPanel";
-import { useChartColors } from "./useChartColors";
+import { chartColor } from "./useChartColors";
 import { formatDistance, kmToUnit, type LengthUnit } from "@/lib/format";
 
 export default function StatsCharts({
@@ -29,7 +29,6 @@ export default function StatsCharts({
     baseline: "new" | "peak" | null;
   };
 }) {
-  const c = useChartColors();
   const distUnit = unit === "mi" ? "mi" : "km";
   const effUnit = unit === "mi" ? "Wh/mi" : "Wh/km";
   const toUnit = (km: number) => Math.round(kmToUnit(km, unit));
@@ -84,34 +83,34 @@ export default function StatsCharts({
 
       <div className="grid gap-4 lg:grid-cols-2">
         <BarPanel
-          title="Distance driven" unit={distUnit} color={c.blue}
+          title="Distance driven" unit={distUnit} color={chartColor.blue}
           data={mileage.map((m) => ({ label: m.label, v: toUnit(m.v) }))}
         />
         <BarPanel
-          title="Consumption" unit={effUnit} color={c.violet}
+          title="Consumption" unit={effUnit} color={chartColor.violet}
           data={efficiency.map((m) => ({ label: m.label, v: Math.round(unit === "mi" ? m.v * 1.609344 : m.v) }))}
         />
         <TimeSeriesPanel
-          title="Battery health · full-pack range" unit={distUnit} color={c.green}
+          title="Battery health · full-pack range" unit={distUnit} color={chartColor.green}
           data={health.map((h) => ({ t: h.t, v: h.v === null ? null : toUnit(h.v) }))}
           formatValue={(v) => `${Math.round(v)} ${distUnit}`}
           formatTick={(t) => new Date(t).toLocaleDateString("en-US", { month: "short", year: "2-digit" })}
         />
         <BarPanel
-          title={drainNote ? "Standby drain · 18 mo" : "Standby drain"} unit="%/day" color={c.orange}
+          title={drainNote ? "Standby drain · 18 mo" : "Standby drain"} unit="%/day" color={chartColor.orange}
           data={drain.map((d) => ({ label: d.label, v: Number(d.v.toFixed(2)) }))}
           formatValue={(v) => `${v.toFixed(2)} %/day`}
         />
         {chargeCost && chargeCost.length > 0 && (
           <BarPanel
-            title="Charge cost" unit={currency} color={c.orange}
+            title="Charge cost" unit={currency} color={chartColor.orange}
             data={chargeCost.map((m) => ({ label: m.label, v: Number(m.cost.toFixed(2)) }))}
             formatValue={(v) => `${currency}${v.toFixed(0)}`}
           />
         )}
         {chargeCost && chargeCost.length > 0 && (
           <BarPanel
-            title="Energy charged" unit="kWh" color={c.green}
+            title="Energy charged" unit="kWh" color={chartColor.green}
             data={chargeCost.map((m) => ({ label: m.label, v: Number(m.energyKwh.toFixed(1)) }))}
             formatValue={(v) => `${v.toFixed(0)} kWh`}
           />

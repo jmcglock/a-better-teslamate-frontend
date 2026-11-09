@@ -78,14 +78,12 @@ export function mapCurvePoint(r: CurveRow): CurvePoint {
   return { t: r.date.getTime(), power: num(r.charger_power), soc: num(r.battery_level) };
 }
 
-const CHARGE_SELECT = `
+export const CHARGE_SELECT = `
   SELECT cp.id, cp.start_date, cp.end_date, cp.charge_energy_added, cp.charge_energy_used,
          cp.cost, cp.duration_min, cp.start_battery_level, cp.end_battery_level,
          cp.start_rated_range_km, cp.end_rated_range_km, cp.outside_temp_avg,
          COALESCE(g.name, a.city, a.display_name) AS location,
-         (SELECT max(ch.charger_power) FROM charges ch WHERE ch.charging_process_id = cp.id) AS max_power,
-         (SELECT max(ch.charger_voltage) FROM charges ch WHERE ch.charging_process_id = cp.id) AS max_voltage,
-         (SELECT bool_or(ch.fast_charger_present) FROM charges ch WHERE ch.charging_process_id = cp.id) AS fast_charger,
+         chagg.max_power, chagg.max_voltage, chagg.fast_charger,
          pos.latitude AS latitude, pos.longitude AS longitude,
          c.name AS car_name
   FROM charging_processes cp
@@ -93,6 +91,13 @@ const CHARGE_SELECT = `
   LEFT JOIN addresses a ON a.id = cp.address_id
   LEFT JOIN geofences g ON g.id = cp.geofence_id
   LEFT JOIN positions pos ON pos.id = cp.position_id
+  LEFT JOIN LATERAL (
+    SELECT max(ch.charger_power) AS max_power,
+           max(ch.charger_voltage) AS max_voltage,
+           bool_or(ch.fast_charger_present) AS fast_charger
+    FROM charges ch
+    WHERE ch.charging_process_id = cp.id
+  ) chagg ON true
 `;
 
 export async function listCharges(
@@ -128,6 +133,14 @@ export async function listTopChargeLocations(
   opts: { carId?: number | null; months?: number | null; limit?: number } = {},
 ): Promise<ChargeLocationSummary[]> {
   const limit = Math.max(1, Math.min(opts.limit ?? 8, 50));
+  const key = `topChargeLocs:${opts.carId ?? "all"}:${opts.months ?? "all"}:${limit}`;
+  return cached(key, CHARGE_TTL_MS, () => loadTopChargeLocations(opts, limit));
+}
+
+async function loadTopChargeLocations(
+  opts: { carId?: number | null; months?: number | null },
+  limit: number,
+): Promise<ChargeLocationSummary[]> {
   const params: unknown[] = [];
   const where = ["cp.charge_energy_added > 0.1"];
   if (opts.carId != null) {
@@ -171,14 +184,21 @@ export async function getCharge(id: number): Promise<ChargeDetail | null> {
     const rows = await q<ChargeRow>(`${CHARGE_SELECT} WHERE cp.id = $1`, [id]);
     if (rows.length === 0) return null;
     const points = await q<CurveRow>(
-      `SELECT date, charger_power, battery_level FROM (
-         SELECT ch.date, ch.charger_power, ch.battery_level,
-                row_number() OVER (ORDER BY ch.date) AS rn,
-                count(*) OVER () AS total
-         FROM charges ch WHERE ch.charging_process_id = $1
-       ) t
-       WHERE rn % greatest(1, ceil(total::numeric / 500)::int) = 0 OR rn = 1 OR rn = total
-       ORDER BY date`,
+      `WITH stats AS (
+         SELECT count(*)::int AS total, min(date) AS first_date, max(date) AS last_date
+         FROM charges WHERE charging_process_id = $1
+       )
+       SELECT ch.date, ch.charger_power, ch.battery_level
+       FROM charges ch
+       CROSS JOIN stats s
+       WHERE ch.charging_process_id = $1
+         AND s.total > 0
+         AND (
+           ch.date = s.first_date
+           OR ch.date = s.last_date
+           OR ch.id % GREATEST(1, ceil(s.total::numeric / 500)::int) = 0
+         )
+       ORDER BY ch.date`,
       [id],
     );
     return { ...mapChargeRow(rows[0]), points: points.map(mapCurvePoint) };

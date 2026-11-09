@@ -211,14 +211,21 @@ export async function getDrive(id: number): Promise<DriveDetail | null> {
     const rows = await q<DriveRow>(`${DRIVE_SELECT} WHERE d.id = $1`, [id]);
     if (rows.length === 0) return null;
     const points = await q<PointRow>(
-      `SELECT date, speed, battery_level, latitude, longitude, elevation, power FROM (
-         SELECT p.date, p.speed, p.battery_level, p.latitude, p.longitude, p.elevation, p.power,
-                row_number() OVER (ORDER BY p.date) AS rn,
-                count(*) OVER () AS total
-         FROM positions p WHERE p.drive_id = $1
-       ) t
-       WHERE rn % greatest(1, ceil(total::numeric / 500)::int) = 0 OR rn = 1 OR rn = total
-       ORDER BY date`,
+      `WITH stats AS (
+         SELECT count(*)::int AS total, min(date) AS first_date, max(date) AS last_date
+         FROM positions WHERE drive_id = $1
+       )
+       SELECT p.date, p.speed, p.battery_level, p.latitude, p.longitude, p.elevation, p.power
+       FROM positions p
+       CROSS JOIN stats s
+       WHERE p.drive_id = $1
+         AND s.total > 0
+         AND (
+           p.date = s.first_date
+           OR p.date = s.last_date
+           OR p.id % GREATEST(1, ceil(s.total::numeric / 500)::int) = 0
+         )
+       ORDER BY p.date`,
       [id],
     );
     return { ...mapDriveRow(rows[0]), points: points.map(mapDrivePoint) };

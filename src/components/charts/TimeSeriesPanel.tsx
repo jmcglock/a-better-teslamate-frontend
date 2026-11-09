@@ -3,7 +3,7 @@
 import {
   CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { useChartColors } from "./useChartColors";
+import { chartColor } from "./useChartColors";
 
 type Point = { t: number; v: number | null };
 
@@ -18,7 +18,6 @@ export default function TimeSeriesPanel({
   syncId?: string; yDomain?: [number, number];
   formatValue?: (v: number) => string; formatTick?: (t: number) => string;
 }) {
-  const c = useChartColors();
   const fmt = formatValue ?? ((v: number) => `${Math.round(v)} ${unit}`);
   const tick = formatTick ?? fmtTime;
   return (
@@ -26,15 +25,15 @@ export default function TimeSeriesPanel({
       <figcaption className="mb-2 text-sm font-medium">
         {title} <span className="text-xs text-ink-2">({unit})</span>
       </figcaption>
-      <ResponsiveContainer width="100%" height={200}>
+      <ResponsiveContainer width="100%" height={200} debounce={50}>
         <LineChart data={data} syncId={syncId} margin={{ top: 4, right: 8, bottom: 0, left: -12 }}>
-          <CartesianGrid stroke={c.line} vertical={false} />
+          <CartesianGrid stroke={chartColor.line} vertical={false} />
           <XAxis
             dataKey="t" type="number" domain={["dataMin", "dataMax"]} scale="time"
-            tickFormatter={tick} tick={{ fill: c.ink2, fontSize: 11 }} tickLine={false} axisLine={{ stroke: c.line }}
+            tickFormatter={tick} tick={{ fill: chartColor.ink2, fontSize: 11 }} tickLine={false} axisLine={{ stroke: chartColor.line }}
           />
           <YAxis
-            domain={yDomain ?? ["auto", "auto"]} tick={{ fill: c.ink2, fontSize: 11 }}
+            domain={yDomain ?? ["auto", "auto"]} tick={{ fill: chartColor.ink2, fontSize: 11 }}
             tickLine={false} axisLine={false} width={46}
           />
           <Tooltip

@@ -28,7 +28,11 @@ export async function GET(req: Request) {
 
       const send = (carId: number, snapshot: CarSnapshot) => {
         if (closed) return;
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ carId, snapshot })}\n\n`));
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ carId, snapshot })}\n\n`));
+        } catch {
+          cleanup();
+        }
       };
 
       for (const [carId, snap] of bridge.getSnapshots()) send(carId, snap);
@@ -38,7 +42,11 @@ export async function GET(req: Request) {
 
       heartbeat = setInterval(() => {
         if (closed) return;
-        controller.enqueue(encoder.encode(": ping\n\n"));
+        try {
+          controller.enqueue(encoder.encode(": ping\n\n"));
+        } catch {
+          cleanup();
+        }
       }, 25000);
 
       req.signal.addEventListener("abort", () => {

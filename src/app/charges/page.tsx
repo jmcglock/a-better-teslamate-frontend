@@ -35,11 +35,13 @@ export default async function ChargesPage({
   const carId = parseCarId(sp.car, cars.map((car) => car.id));
 
   const months = historyRangeMonths(range);
-  const res = await safe(listCharges(page, { carId, months }));
+  const chargesPromise = listCharges(page, { carId, months });
+  const locationsPromise = listTopChargeLocations({ carId, months, limit: 8 });
+  const res = await safe(chargesPromise);
   if (!res.ok) return <DataUnavailable service="database" detail={res.error} />;
   const { items: charges, hasMore } = res.data;
   const summary = summarizeCharges(charges);
-  const locationsRes = await safe(listTopChargeLocations({ carId, months, limit: 8 }));
+  const locationsRes = await safe(locationsPromise);
   const topLocations = locationsRes.ok ? locationsRes.data : [];
   const filtered = carId !== null || range !== "all";
   const href = (nextPage: number) => historyHref("/charges", { car: carId, range, page: nextPage });

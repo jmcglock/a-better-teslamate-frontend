@@ -1,15 +1,20 @@
 import { EventEmitter } from "node:events";
 import mqtt, { type MqttClient } from "mqtt";
+import { createUpdateCoalescer } from "./coalesce";
 import { applyMessage, parseTopic, type CarSnapshot } from "./snapshot";
 
 export class MqttBridge extends EventEmitter {
   private snapshots = new Map<number, CarSnapshot>();
   private client: MqttClient;
+  private coalesce: ReturnType<typeof createUpdateCoalescer>;
   connected = false;
 
   constructor(url: string) {
     super();
     this.setMaxListeners(50);
+    this.coalesce = createUpdateCoalescer((carId, snap) => {
+      this.emit("update", carId, snap);
+    });
     this.client = mqtt.connect(url, {
       username: process.env.MQTT_USERNAME || undefined,
       password: process.env.MQTT_PASSWORD || undefined,
@@ -31,8 +36,9 @@ export class MqttBridge extends EventEmitter {
       if (!parsed) return;
       const prev = this.snapshots.get(parsed.carId) ?? {};
       const next = applyMessage(prev, parsed.field, payload.toString());
+      if (next === prev) return;
       this.snapshots.set(parsed.carId, next);
-      this.emit("update", parsed.carId, next);
+      this.coalesce.push(parsed.carId, next);
     });
   }
 

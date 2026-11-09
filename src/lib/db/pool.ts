@@ -10,7 +10,8 @@ function createPool(): Pool {
     // TeslaMate Postgres often runs with max_connections ~20 shared with
     // TeslaMate + Grafana. Keep this modest; hold a warm client in prod so
     // first-click after idle does not pay TCP + auth again.
-    max: 3,
+    // Dashboard activity issues four reads at once. 4 avoids a queue on that path.
+    max: 4,
     min: isProd ? 1 : 0,
     idleTimeoutMillis: isProd ? 60_000 : 10_000,
     connectionTimeoutMillis: 4_000,

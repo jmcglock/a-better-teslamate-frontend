@@ -3,6 +3,7 @@
 import {
   createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode,
 } from "react";
+import { mergeSnapshots } from "./coalesce";
 import type { CarSnapshot } from "./snapshot";
 
 type LiveContextValue = {
@@ -23,26 +24,59 @@ export function LiveProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const es = new EventSource("/api/live");
+    const pending = new Map<number, CarSnapshot>();
+    let raf = 0;
+    let opened = false;
+    let offlineTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const flush = () => {
+      raf = 0;
+      const batch = [...pending.entries()];
+      pending.clear();
+      setSnaps((prev) => mergeSnapshots(prev, batch));
+    };
+
+    const armOffline = (delay: number) => {
+      if (offlineTimer !== null) return;
+      offlineTimer = setTimeout(() => {
+        offlineTimer = null;
+        wasDisconnected.current = true;
+        setConnected(false);
+      }, delay);
+    };
+
     es.onopen = () => {
+      opened = true;
+      if (offlineTimer !== null) {
+        clearTimeout(offlineTimer);
+        offlineTimer = null;
+      }
       setConnected(true);
       if (wasDisconnected.current) {
         setJustReconnected(true);
         wasDisconnected.current = false;
       }
     };
+    // EventSource retries on its own and fires error while it does. A short
+    // blip should not flash "Live offline" or the reconnect toast. The first
+    // connection gets longer before we call it down.
     es.onerror = () => {
-      setConnected(false);
-      wasDisconnected.current = true;
+      armOffline(opened ? 1_500 : 4_000);
     };
     es.onmessage = (ev) => {
       try {
         const { carId, snapshot } = JSON.parse(ev.data) as { carId: number; snapshot: CarSnapshot };
-        setSnaps((prev) => ({ ...prev, [carId]: snapshot }));
+        pending.set(carId, snapshot);
+        if (raf === 0) raf = requestAnimationFrame(flush);
       } catch {
         // ignore malformed frames
       }
     };
-    return () => es.close();
+    return () => {
+      es.close();
+      if (offlineTimer !== null) clearTimeout(offlineTimer);
+      if (raf !== 0) cancelAnimationFrame(raf);
+    };
   }, []);
 
   const value = useMemo(

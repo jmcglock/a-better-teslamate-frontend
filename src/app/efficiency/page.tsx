@@ -28,7 +28,7 @@ export default async function EfficiencyPage({ searchParams }: { searchParams: P
 
   const res = await safe(Promise.all([getEfficiencyByTemp(car.id, range), getSettings()]));
   if (!res.ok) return <DataUnavailable service="database" detail={res.error} />;
-  const [data, settings] = res.data;
+  const [series, settings] = res.data;
   const carForLinks = cars.length > 1 ? car.id : null;
 
   return (
@@ -43,10 +43,10 @@ export default async function EfficiencyPage({ searchParams }: { searchParams: P
         </div>
       </div>
       {cars.length === 1 && <p className="mb-3 text-sm text-ink-2">{car.name} · {statsRangeLabel(range)}</p>}
-      {data.length === 0 ? <DataUnavailable service="database" detail="No drives with temperature data in this range." /> : (
+      {series.points.length === 0 ? <DataUnavailable service="database" detail="No drives with temperature data in this range." /> : (
         <>
-          <p className="mb-3 text-sm text-ink-2">{data.length} drives</p>
-          <EfficiencyTempChart data={data} unit={settings.unitOfLength} />
+          <p className="mb-3 text-sm text-ink-2">{series.driveCount} drives</p>
+          <EfficiencyTempChart data={series.points} unit={settings.unitOfLength} />
         </>
       )}
     </div>

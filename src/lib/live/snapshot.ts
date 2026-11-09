@@ -41,6 +41,7 @@ export function applyMessage(snap: CarSnapshot, field: string, payload: string):
     value = Number.isFinite(n) ? n : null;
   } else if (BOOLEAN.has(field)) value = payload === "true";
   else value = payload;
+  if (Object.is(snap[field], value)) return snap;
   return { ...snap, [field]: value };
 }
 

@@ -1,6 +1,6 @@
 import { cached } from "@/lib/cache";
 import { num } from "@/lib/format";
-import { mapChargeRow, type ChargeListItem, type ChargeRow } from "./charges";
+import { CHARGE_SELECT, mapChargeRow, type ChargeListItem, type ChargeRow } from "./charges";
 import { mapDriveRow, type DriveListItem, type DriveRow } from "./drives";
 import { q } from "./pool";
 
@@ -38,23 +38,6 @@ const DRIVE_SELECT = `
   LEFT JOIN geofences ge ON ge.id = d.end_geofence_id
 `;
 
-const CHARGE_SELECT = `
-  SELECT cp.id, cp.start_date, cp.end_date, cp.charge_energy_added, cp.charge_energy_used,
-         cp.cost, cp.duration_min, cp.start_battery_level, cp.end_battery_level,
-         cp.start_rated_range_km, cp.end_rated_range_km, cp.outside_temp_avg,
-         COALESCE(g.name, a.city, a.display_name) AS location,
-         (SELECT max(ch.charger_power) FROM charges ch WHERE ch.charging_process_id = cp.id) AS max_power,
-         (SELECT max(ch.charger_voltage) FROM charges ch WHERE ch.charging_process_id = cp.id) AS max_voltage,
-         (SELECT bool_or(ch.fast_charger_present) FROM charges ch WHERE ch.charging_process_id = cp.id) AS fast_charger,
-         pos.latitude AS latitude, pos.longitude AS longitude,
-         c.name AS car_name
-  FROM charging_processes cp
-  JOIN cars c ON c.id = cp.car_id
-  LEFT JOIN addresses a ON a.id = cp.address_id
-  LEFT JOIN geofences g ON g.id = cp.geofence_id
-  LEFT JOIN positions pos ON pos.id = cp.position_id
-`;
-
 async function lastDrive(carId: number): Promise<DriveListItem | null> {
   const rows = await q<DriveRow>(
     `${DRIVE_SELECT} WHERE d.car_id = $1 AND d.distance > 0.1 ORDER BY d.start_date DESC LIMIT 1`,
@@ -71,39 +54,75 @@ async function lastCharge(carId: number): Promise<ChargeListItem | null> {
   return rows[0] ? mapChargeRow(rows[0]) : null;
 }
 
-type TotalsRow = {
-  distance: string | number | null;
-  energy: string | number | null;
-  cost: string | number | null;
-  drive_count: string | number | null;
-  charge_count: string | number | null;
+type DriveWindowRow = {
+  today_distance: string | number | null;
+  today_drives: string | number | null;
+  week_distance: string | number | null;
+  week_drives: string | number | null;
 };
 
-async function periodTotals(carId: number, since: Date): Promise<PeriodTotals> {
-  const rows = await q<TotalsRow>(
-    `
-    SELECT
-      (SELECT coalesce(sum(distance), 0) FROM drives
-        WHERE car_id = $1 AND distance > 0.1 AND start_date >= $2) AS distance,
-      (SELECT coalesce(sum(charge_energy_added), 0) FROM charging_processes
-        WHERE car_id = $1 AND charge_energy_added > 0.1 AND start_date >= $2) AS energy,
-      (SELECT sum(cost) FROM charging_processes
-        WHERE car_id = $1 AND start_date >= $2 AND cost IS NOT NULL) AS cost,
-      (SELECT count(*)::int FROM drives
-        WHERE car_id = $1 AND distance > 0.1 AND start_date >= $2) AS drive_count,
-      (SELECT count(*)::int FROM charging_processes
-        WHERE car_id = $1 AND charge_energy_added > 0.1 AND start_date >= $2) AS charge_count
-    `,
-    [carId, since],
-  );
-  const r = rows[0];
+type ChargeWindowRow = {
+  today_energy: string | number | null;
+  today_cost: string | number | null;
+  today_charges: string | number | null;
+  week_energy: string | number | null;
+  week_cost: string | number | null;
+  week_charges: string | number | null;
+};
+
+/** Today is a subset of the Monday-start week, so one scan covers both. */
+export function mapActivityWindows(
+  drive: DriveWindowRow | undefined,
+  charge: ChargeWindowRow | undefined,
+): { today: PeriodTotals; week: PeriodTotals } {
   return {
-    distanceKm: num(r?.distance) ?? 0,
-    energyAddedKwh: num(r?.energy) ?? 0,
-    cost: num(r?.cost),
-    driveCount: num(r?.drive_count) ?? 0,
-    chargeCount: num(r?.charge_count) ?? 0,
+    today: {
+      distanceKm: num(drive?.today_distance) ?? 0,
+      energyAddedKwh: num(charge?.today_energy) ?? 0,
+      cost: num(charge?.today_cost),
+      driveCount: num(drive?.today_drives) ?? 0,
+      chargeCount: num(charge?.today_charges) ?? 0,
+    },
+    week: {
+      distanceKm: num(drive?.week_distance) ?? 0,
+      energyAddedKwh: num(charge?.week_energy) ?? 0,
+      cost: num(charge?.week_cost),
+      driveCount: num(drive?.week_drives) ?? 0,
+      chargeCount: num(charge?.week_charges) ?? 0,
+    },
   };
+}
+
+async function windowTotals(carId: number, today: Date, week: Date): Promise<{ today: PeriodTotals; week: PeriodTotals }> {
+  const [drives, charges] = await Promise.all([
+    q<DriveWindowRow>(
+      `
+      SELECT
+        coalesce(sum(distance) FILTER (WHERE start_date >= $2), 0) AS today_distance,
+        (count(*) FILTER (WHERE start_date >= $2))::int AS today_drives,
+        coalesce(sum(distance), 0) AS week_distance,
+        count(*)::int AS week_drives
+      FROM drives
+      WHERE car_id = $1 AND distance > 0.1 AND start_date >= $3
+      `,
+      [carId, today, week],
+    ),
+    q<ChargeWindowRow>(
+      `
+      SELECT
+        coalesce(sum(charge_energy_added) FILTER (WHERE start_date >= $2 AND charge_energy_added > 0.1), 0) AS today_energy,
+        sum(cost) FILTER (WHERE start_date >= $2 AND cost IS NOT NULL) AS today_cost,
+        (count(*) FILTER (WHERE start_date >= $2 AND charge_energy_added > 0.1))::int AS today_charges,
+        coalesce(sum(charge_energy_added) FILTER (WHERE charge_energy_added > 0.1), 0) AS week_energy,
+        sum(cost) FILTER (WHERE cost IS NOT NULL) AS week_cost,
+        (count(*) FILTER (WHERE charge_energy_added > 0.1))::int AS week_charges
+      FROM charging_processes
+      WHERE car_id = $1 AND start_date >= $3
+      `,
+      [carId, today, week],
+    ),
+  ]);
+  return mapActivityWindows(drives[0], charges[0]);
 }
 
 function startOfLocalDay(d = new Date()): Date {
@@ -123,13 +142,12 @@ function startOfLocalWeek(d = new Date()): Date {
 
 export async function getCarActivity(carId: number): Promise<CarActivity> {
   return cached(`activity:${carId}`, ACTIVITY_TTL_MS, async () => {
-    const [drive, charge, today, week] = await Promise.all([
+    const [drive, charge, totals] = await Promise.all([
       lastDrive(carId),
       lastCharge(carId),
-      periodTotals(carId, startOfLocalDay()),
-      periodTotals(carId, startOfLocalWeek()),
+      windowTotals(carId, startOfLocalDay(), startOfLocalWeek()),
     ]);
-    return { carId, lastDrive: drive, lastCharge: charge, today, week };
+    return { carId, lastDrive: drive, lastCharge: charge, today: totals.today, week: totals.week };
   });
 }
 

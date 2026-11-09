@@ -90,31 +90,54 @@ export async function getMonthlyEfficiency(
  */
 export type EfficiencyTempPoint = { tempC: number; whPerKm: number; distanceKm: number };
 
+export type EfficiencyTempSeries = {
+  points: EfficiencyTempPoint[];
+  driveCount: number;
+};
+
 export async function getEfficiencyByTemp(
   carId: number,
   range: StatsRangeKey = "12m",
-): Promise<EfficiencyTempPoint[]> {
+): Promise<EfficiencyTempSeries> {
   const months = statsRangeMonths(range);
-  return cached(`effTemp:${carId}:${range}`, STATS_TTL_MS, async () => {
+  return cached(`effTempBuckets:${carId}:${range}`, STATS_TTL_MS, async () => {
     const params: unknown[] = [carId];
-    const rows = await q<{ outside_temp_avg: string | number | null; efficiency: string | number | null; distance: string | number | null; range_used_km: string | number | null }>(`
-      SELECT d.outside_temp_avg, c.efficiency, d.distance,
-             (d.start_rated_range_km - d.end_rated_range_km) AS range_used_km
-      FROM drives d JOIN cars c ON c.id = d.car_id
-      WHERE d.car_id = $1 AND d.distance > 0.1 AND d.outside_temp_avg IS NOT NULL${sinceMonthsSql("d.start_date", months, params)}
+    // Weighted Wh/km by whole degree. Shipping one row per drive made the
+    // scatter chart stall once history grew past a few thousand trips.
+    const rows = await q<{
+      temp_c: string | number | null;
+      wh_per_km: string | number | null;
+      distance_km: string | number | null;
+      drives: string | number | null;
+    }>(`
+      SELECT round(d.outside_temp_avg)::int AS temp_c,
+             sum((d.start_rated_range_km - d.end_rated_range_km) * c.efficiency) * 1000
+               / nullif(sum(d.distance), 0) AS wh_per_km,
+             sum(d.distance) AS distance_km,
+             count(*)::int AS drives
+      FROM drives d
+      JOIN cars c ON c.id = d.car_id
+      WHERE d.car_id = $1
+        AND d.distance > 0.1
+        AND d.outside_temp_avg IS NOT NULL
+        AND d.start_rated_range_km IS NOT NULL
+        AND d.end_rated_range_km IS NOT NULL
+        AND d.start_rated_range_km > d.end_rated_range_km${sinceMonthsSql("d.start_date", months, params)}
+      GROUP BY 1
+      ORDER BY 1
     `, params);
-    const out: EfficiencyTempPoint[] = [];
+    const points: EfficiencyTempPoint[] = [];
+    let driveCount = 0;
     for (const r of rows) {
-      const temp = num(r.outside_temp_avg);
-      const carEff = num(r.efficiency);
-      const dist = num(r.distance);
-      const rangeUsed = num(r.range_used_km);
-      if (temp === null || carEff === null || dist === null || rangeUsed === null || dist <= 0 || rangeUsed <= 0) continue;
-      const whPerKm = (rangeUsed * carEff * 1000) / dist;
-      if (!Number.isFinite(whPerKm)) continue;
-      out.push({ tempC: temp, whPerKm: Math.round(whPerKm), distanceKm: Math.round(dist) });
+      const temp = num(r.temp_c);
+      const whPerKm = num(r.wh_per_km);
+      const distanceKm = num(r.distance_km);
+      const drives = num(r.drives) ?? 0;
+      if (temp === null || whPerKm === null || distanceKm === null || whPerKm <= 0) continue;
+      driveCount += drives;
+      points.push({ tempC: temp, whPerKm: Math.round(whPerKm), distanceKm: Math.round(distanceKm) });
     }
-    return out;
+    return { points, driveCount };
   });
 }
 

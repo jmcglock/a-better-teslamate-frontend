@@ -27,6 +27,11 @@ describe("applyMessage", () => {
     expect(a.state).toBe("online");
     expect(b.state).toBe("driving");
   });
+  it("returns the same snapshot when the value did not change", () => {
+    const a = applyMessage({}, "battery_level", "72");
+    expect(applyMessage(a, "battery_level", "72")).toBe(a);
+    expect(applyMessage(a, "locked", "false")).not.toBe(a);
+  });
 });
 
 describe("parseActiveRoute", () => {

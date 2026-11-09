@@ -111,17 +111,11 @@ body {
 
 /* ── Page enter (template remount) ── */
 .page-enter {
-  animation: page-enter var(--dur-slow) var(--ease-out) both;
+  animation: page-enter 160ms var(--ease-out) both;
 }
 @keyframes page-enter {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ── Pressable controls ── */
@@ -287,31 +281,17 @@ body {
 
 /* ── Expandable live panels ── */
 .panel-expand {
-  animation: panel-expand var(--dur-slow) var(--ease-out) both;
-  overflow: hidden;
+  animation: panel-expand 180ms var(--ease-out) both;
 }
 @keyframes panel-expand {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-    max-height: 0;
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-    max-height: 40rem;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-/* ── Animated number crossfade ── */
+/* ── Live figures ── */
 .anim-num {
   display: inline-block;
   font-variant-numeric: tabular-nums;
-  transition: opacity var(--dur-fast) ease, transform var(--dur-fast) var(--ease-out);
-}
-.anim-num.is-flipping {
-  opacity: 0.35;
-  transform: translateY(2px);
 }
 
 /* ── Progress bars ── */

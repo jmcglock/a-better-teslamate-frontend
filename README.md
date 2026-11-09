@@ -13,7 +13,7 @@ TeslaMate itself is untouched.
 Prefer a **release tag** (semver). Every main build also gets an immutable `sha-<short>` tag. No floating `latest`.
 
 ```bash
-IMG=ghcr.io/jmcglock/a-better-teslamate-frontend:1.5.5
+IMG=ghcr.io/jmcglock/a-better-teslamate-frontend:1.5.10
 # or pin a build: ...:sha-<short> from Packages / Actions
 
 docker pull "$IMG"
@@ -31,7 +31,14 @@ docker compose up -d
 ```
 
 Image: `ghcr.io/jmcglock/a-better-teslamate-frontend`  
-Tags: `1.5.4` / `v1.5.4` on releases; `sha-<short>` on every main build.
+Tags: `1.5.10` / `v1.5.10` on releases; `sha-<short>` on every main build.
+
+## What's in 1.5.10
+
+- Live updates are coalesced to a few frames a second. Speed, power, and state no longer repaint on every MQTT topic, and the numbers stay visible instead of fading out.
+- The car map moves the marker and recenters only when the car leaves the view. Short SSE blips no longer flash "Live offline".
+- Faster history: charge rows aggregate charger stats in one pass, drive and charge curves sample without sorting every point, efficiency is grouped by temperature in SQL, and the dashboard today/week totals scan each table once.
+- Charts follow the theme without a color flash after load. Page transitions are a short fade.
 
 ## What's in 1.5.4
 
