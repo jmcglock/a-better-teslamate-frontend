@@ -164,6 +164,30 @@ export async function getDriveDays(
   });
 }
 
+export type ChargeDay = { date: string; count: number; energyKwh: number };
+
+/** Charging sessions and energy added per calendar day, for the charge heatmap. */
+export async function getChargeDays(
+  carId: number,
+  range: StatsRangeKey = "12m",
+): Promise<ChargeDay[]> {
+  const months = statsRangeMonths(range);
+  return cached(`chargeDays:${carId}:${range}`, STATS_TTL_MS, async () => {
+    const params: unknown[] = [carId];
+    const rows = await q<{ d: Date; c: string | number; energy: string | number | null }>(`
+      SELECT date_trunc('day', cp.start_date) AS d, count(*) AS c, sum(cp.charge_energy_added) AS energy
+      FROM charging_processes cp
+      WHERE cp.car_id = $1 AND cp.charge_energy_added > 0.1${sinceMonthsSql("cp.start_date", months, params)}
+      GROUP BY 1 ORDER BY 1
+    `, params);
+    return rows.map((r) => ({
+      date: r.d.toISOString().slice(0, 10),
+      count: Number(r.c),
+      energyKwh: Math.round((num(r.energy) ?? 0) * 10) / 10,
+    }));
+  });
+}
+
 export async function getBatteryHealth(
   carId: number,
   range: StatsRangeKey = "12m",

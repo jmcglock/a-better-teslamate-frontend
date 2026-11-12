@@ -41,13 +41,14 @@ export function parseCarId(raw: string | undefined, knownIds: number[]): number 
 /** Bookmarkable path. Omits the default range and page 1. */
 export function historyHref(
   path: string,
-  opts: { car?: number | null; range?: string; page?: number; defaultRange?: string },
+  opts: { car?: number | null; range?: string; page?: number; defaultRange?: string; metric?: string },
 ): string {
   const params = new URLSearchParams();
   if (opts.car != null) params.set("car", String(opts.car));
   const defaultRange = opts.defaultRange ?? "all";
   if (opts.range && opts.range !== defaultRange) params.set("range", opts.range);
   if (opts.page && opts.page > 1) params.set("page", String(opts.page));
+  if (opts.metric) params.set("metric", opts.metric);
   const query = params.toString();
   return query ? `${path}?${query}` : path;
 }
