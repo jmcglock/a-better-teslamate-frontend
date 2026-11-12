@@ -1,18 +1,29 @@
 import DataUnavailable from "@/components/DataUnavailable";
 import FilterPills from "@/components/FilterPills";
+import { calendarLevel, calendarWeeks, parseCalendarMetric, CALENDAR_METRICS } from "@/lib/calendar";
+import { getChargeDays, getDriveDays, statsRangeMonths } from "@/lib/db/stats";
 import { listCarIdentities } from "@/lib/db/stats";
-import { getDriveDays, statsRangeMonths } from "@/lib/db/stats";
-import { getSettings } from "@/lib/db/settings";
 import { safe } from "@/lib/db/pool";
 import { historyHref } from "@/lib/db/range";
 import { STATS_RANGES, parseStatsRange, statsRangeLabel } from "@/lib/db/stats";
+import { formatEnergy } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ car?: string; range?: string }> }) {
+const DRIVE_SHADES = ["var(--line)", "#1e3a5f", "#2563eb", "#60a5fa", "#93c5fd"];
+const CHARGE_SHADES = ["var(--line)", "#064e3b", "#0a9d52", "#12c96a", "#6ee7a8"];
+
+type CalendarDay = { date: string; count: number; energyKwh: number | null };
+
+export default async function CalendarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ car?: string; range?: string; metric?: string }>;
+}) {
   const sp = await searchParams;
   const requestedId = sp.car ? Number(sp.car) : null;
   const range = parseStatsRange(sp.range);
+  const metric = parseCalendarMetric(sp.metric);
 
   const carsRes = await safe(listCarIdentities());
   if (!carsRes.ok) return <DataUnavailable service="database" detail={carsRes.error} />;
@@ -25,7 +36,13 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     if (found) car = found;
   }
 
-  const res = await safe(getDriveDays(car.id, range));
+  const daysPromise: Promise<CalendarDay[]> =
+    metric === "charges"
+      ? getChargeDays(car.id, range)
+      : getDriveDays(car.id, range).then((rows) =>
+          rows.map((row) => ({ date: row.date, count: row.count, energyKwh: null })),
+        );
+  const res = await safe(daysPromise);
   if (!res.ok) return <DataUnavailable service="database" detail={res.error} />;
   const days = res.data;
   const max = days.reduce((m, d) => Math.max(m, d.count), 1);
@@ -49,46 +66,54 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     start.setUTCMonth(start.getUTCMonth() - months);
   }
   start.setUTCHours(0, 0, 0, 0);
-  const allDays: string[] = [];
-  const cursor = new Date(start);
-  while (cursor <= end) {
-    allDays.push(cursor.toISOString().slice(0, 10));
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
+  const weeks = calendarWeeks(start, end);
 
-  // Group into weeks (Sun-Sat).
-  const weeks: string[][] = [];
-  let week: string[] = [];
-  for (const d of allDays) {
-    const dow = new Date(d + "T00:00:00Z").getUTCDay();
-    if (dow === 0 && week.length) { weeks.push(week); week = []; }
-    week.push(d);
-  }
-  if (week.length) weeks.push(week);
+  const shades = metric === "drives" ? DRIVE_SHADES : CHARGE_SHADES;
+  const color = (count: number) => shades[calendarLevel(count, max)];
 
-  const color = (count: number) => {
-    if (count === 0) return "var(--line)";
-    const t = count / max;
-    if (t < 0.25) return "#1e3a5f";
-    if (t < 0.5) return "#2563eb";
-    if (t < 0.75) return "#60a5fa";
-    return "#93c5fd";
-  };
-
-  const totalDrives = days.reduce((s, d) => s + d.count, 0);
+  const totalSessions = days.reduce((s, d) => s + d.count, 0);
+  const totalEnergy = days.reduce((s, d) => s + (d.energyKwh ?? 0), 0);
+  const metricForLinks = metric === "drives" ? undefined : metric;
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <h1 className="font-[family-name:var(--font-cond)] text-2xl font-semibold tracking-tight">Drive calendar</h1>
+        <h1 className="font-[family-name:var(--font-cond)] text-2xl font-semibold tracking-tight">
+          {metric === "drives" ? "Drive calendar" : "Charging calendar"}
+        </h1>
         <div className="flex flex-wrap items-center gap-4">
           {cars.length > 1 && (
-            <FilterPills options={cars.map((c) => ({ key: String(c.id), label: c.name }))} active={String(car.id)} hrefFor={(id) => historyHref("/calendar", { car: Number(id), range })} />
+            <FilterPills
+              options={cars.map((c) => ({ key: String(c.id), label: c.name }))}
+              active={String(car.id)}
+              hrefFor={(id) => historyHref("/calendar", { car: Number(id), range, metric: metricForLinks })}
+            />
           )}
-          <FilterPills options={STATS_RANGES} active={range} hrefFor={(key) => historyHref("/calendar", { car: carForLinks, range: key })} />
+          <FilterPills
+            options={CALENDAR_METRICS}
+            active={metric}
+            hrefFor={(key) =>
+              historyHref("/calendar", {
+                car: carForLinks,
+                range,
+                metric: key === "drives" ? undefined : key,
+              })
+            }
+          />
+          <FilterPills
+            options={STATS_RANGES}
+            active={range}
+            hrefFor={(key) => historyHref("/calendar", { car: carForLinks, range: key, metric: metricForLinks })}
+          />
         </div>
       </div>
-      {cars.length === 1 && <p className="mb-3 text-sm text-ink-2">{car.name} · {statsRangeLabel(range)} · {totalDrives} drives</p>}
+      {cars.length === 1 && (
+        <p className="mb-3 text-sm text-ink-2">
+          {car.name} · {statsRangeLabel(range)} · {totalSessions}{" "}
+          {metric === "drives" ? (totalSessions === 1 ? "drive" : "drives") : totalSessions === 1 ? "session" : "sessions"}
+          {metric === "charges" ? ` · ${formatEnergy(totalEnergy)}` : ""}
+        </p>
+      )}
       <div className="overflow-x-auto">
         <div className="inline-grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${weeks.length}, 12px)` }}>
           {weeks.map((w, wi) => (
@@ -98,10 +123,13 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                 if (!date) return <div key={di} className="h-3 w-3" />;
                 const info = byDate.get(date);
                 const count = info?.count ?? 0;
+                const detail =
+                  info?.energyKwh != null && count > 0 ? ` · ${formatEnergy(info.energyKwh)}` : "";
+                const noun = metric === "drives" ? "drive" : "charge";
                 return (
                   <div
                     key={di}
-                    title={`${date}: ${count} drive${count === 1 ? "" : "s"}${info ? ` · ${info.distanceKm} km` : ""}`}
+                    title={`${date}: ${count} ${noun}${count === 1 ? "" : "s"}${detail}`}
                     className="h-3 w-3 rounded-sm"
                     style={{ background: color(count) }}
                   />

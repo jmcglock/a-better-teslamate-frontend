@@ -68,4 +68,10 @@ describe("historyHref", () => {
     expect(historyHref("/stats", { car: 1, range: "12m", defaultRange: "12m" })).toBe("/stats?car=1");
     expect(historyHref("/stats", { car: 1, range: "all", defaultRange: "12m" })).toBe("/stats?car=1&range=all");
   });
+
+  it("keeps the calendar metric when set", () => {
+    expect(historyHref("/calendar", { car: 1, range: "12m", defaultRange: "12m", metric: "charges" })).toBe(
+      "/calendar?car=1&metric=charges",
+    );
+  });
 });

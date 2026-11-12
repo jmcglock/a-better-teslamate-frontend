@@ -33,6 +33,10 @@ docker compose up -d
 Image: `ghcr.io/jmcglock/a-better-teslamate-frontend`  
 Tags: `1.5.11` / `v1.5.11` on releases; `sha-<short>` on every main build.
 
+## What's in 1.5.12
+
+- Calendar: switch between the drive heatmap and a new charging heatmap. Charging days shade by session count, tooltips include energy added, and the header totals sessions and kWh for the selected car and range.
+
 ## What's in 1.5.10
 
 - Live updates are coalesced to a few frames a second. Speed, power, and state no longer repaint on every MQTT topic, and the numbers stay visible instead of fading out.
