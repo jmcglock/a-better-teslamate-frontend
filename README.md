@@ -35,6 +35,7 @@ Tags: `1.6.0` / `v1.6.0` on releases; `sha-<short>` on every main build.
 
 ## What's in 1.6.0
 
+- Battery stress: time-weighted SoC histogram, share of time above 80% and below 20%, daily depth of discharge, equivalent full cycles, hot-and-full exposure, and the charge end-SoC distribution. New `/stress` page with car and range filters.
 - Charging costs: cost per 100 km, cost coverage, location rate comparison, and savings opportunity. New `/costs` page with car and range filters.
 
 ## What's in 1.5.12
