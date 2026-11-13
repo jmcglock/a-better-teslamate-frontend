@@ -10,6 +10,7 @@ const links = [
   { href: "/calendar", label: "Calendar" },
   { href: "/charges", label: "Charges" },
   { href: "/costs", label: "Costs" },
+  { href: "/charge-lab", label: "Charge lab" },
   { href: "/stats", label: "Stats" },
   { href: "/efficiency", label: "Efficiency" },
   { href: "/battery", label: "Battery" },
