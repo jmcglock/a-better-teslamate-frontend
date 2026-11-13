@@ -242,8 +242,8 @@ type CarIdentityRow = {
   id: number;
   name: string | null;
   model: string | null;
-  marketing_name: string | null;
-  trim_badging: string | null;
+  marketing_name?: string | null;
+  trim_badging?: string | null;
   vin: string | null;
   efficiency: string | number | null;
 };
@@ -263,8 +263,8 @@ function mapCarIdentity(r: CarIdentityRow): CarIdentity {
     id: r.id,
     name: r.name ?? `Car ${r.id}`,
     model: r.model,
-    marketingName: r.marketing_name,
-    trimBadging: r.trim_badging,
+    marketingName: r.marketing_name ?? null,
+    trimBadging: r.trim_badging ?? null,
     vin: r.vin,
     efficiency: num(r.efficiency),
   };
@@ -323,9 +323,9 @@ export function newCarRatedRangeKm(car: {
 export async function listCarIdentities(): Promise<CarIdentity[]> {
   return cached("carIdentities", CAR_IDENTITY_TTL_MS, async () => {
     const rows = await q<CarIdentityRow>(`
-      SELECT id, name, model, marketing_name, trim_badging, vin, efficiency
+      SELECT *
       FROM cars
-      ORDER BY display_priority NULLS LAST, id
+      ORDER BY id
     `);
     return rows.map(mapCarIdentity);
   });
