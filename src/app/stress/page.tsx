@@ -144,14 +144,16 @@ export default async function StressPage({
               unit="% of time"
               data={histogramData}
               color="var(--chart-blue)"
-              formatValue={(v) => `${v.toFixed(1)}%`}
+              valueDecimals={1}
+              valueSuffix="%"
             />
             <BarPanel
               title="Charge end SoC"
               unit="sessions"
               data={endSocData}
               color="var(--chart-green)"
-              formatValue={(v) => `${Math.round(v)} sessions`}
+              valueDecimals={0}
+              valueSuffix=" sessions"
             />
           </div>
 
@@ -188,7 +190,8 @@ export default async function StressPage({
               unit="% DoD"
               data={dodData}
               color="var(--chart-orange)"
-              formatValue={(v) => `${v.toFixed(1)}% DoD`}
+              valueDecimals={1}
+              valueSuffix="% DoD"
             />
           </div>
 

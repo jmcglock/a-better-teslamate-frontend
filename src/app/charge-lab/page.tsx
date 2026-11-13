@@ -91,7 +91,7 @@ export default async function ChargeLabPage({
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <BarPanel title="DC taper by SoC" unit="kW" data={taperData} color="var(--accent)" formatValue={(v) => `${Math.round(v)} kW`} />
+            <BarPanel title="DC taper by SoC" unit="kW" data={taperData} color="var(--accent)" valueDecimals={0} valueSuffix=" kW" />
             <div className="rounded-2xl border border-line bg-panel p-4">
               <div className="mb-2 text-sm font-medium">Site scorecard</div>
               <ul className="divide-y divide-line">

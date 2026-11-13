@@ -193,14 +193,16 @@ export default async function UsagePage({
               unit="h"
               data={asleepData}
               color="var(--state-idle)"
-              formatValue={(v) => hoursLabel(v)}
+              valueMode="hours"
+              valueSuffix=""
             />
             <BarPanel
               title="Monthly wakeups per day"
               unit="/day"
               data={wakeupData}
               color="var(--state-sentry)"
-              formatValue={(v) => v.toFixed(2)}
+              valueDecimals={2}
+              valueSuffix=""
             />
           </div>
         </>

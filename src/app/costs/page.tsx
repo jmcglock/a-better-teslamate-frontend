@@ -122,14 +122,18 @@ export default async function CostsPage({
               unit={currency}
               data={costData}
               color="var(--accent)"
-              formatValue={(v) => formatCost(v, currency)}
+              valuePrefix={currency}
+              valueDecimals={2}
+              valueSuffix=""
             />
             <BarPanel
               title="Cost per 100 km"
               unit={`${currency}/100km`}
               data={costPer100KmData}
               color="var(--good)"
-              formatValue={(v) => formatCost(v, currency)}
+              valuePrefix={currency}
+              valueDecimals={2}
+              valueSuffix=""
             />
           </div>
 
