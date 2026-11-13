@@ -17,6 +17,7 @@ const links = [
   { href: "/stats", label: "Stats" },
   { href: "/efficiency", label: "Efficiency" },
   { href: "/battery", label: "Battery" },
+  { href: "/stress", label: "Stress" },
   { href: "/timeline", label: "Timeline" },
   { href: "/places", label: "Places" },
   { href: "/updates", label: "Updates" },
