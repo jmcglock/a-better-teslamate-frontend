@@ -4,14 +4,27 @@ import {
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { chartColor } from "./useChartColors";
+import { formatDuration } from "@/lib/format";
 
 export default function BarPanel({
   title, unit, data, color, formatValue,
+  valuePrefix, valueSuffix, valueDecimals, valueMode,
 }: {
   title: string; unit: string; data: { label: string; v: number }[]; color: string;
   formatValue?: (v: number) => string;
+  valuePrefix?: string;
+  valueSuffix?: string;
+  valueDecimals?: number;
+  valueMode?: "hours";
 }) {
-  const fmt = formatValue ?? ((v: number) => `${Math.round(v)} ${unit}`);
+  const fmt = formatValue ?? ((v: number) => {
+    if (valueMode === "hours") return formatDuration(v * 60);
+    const decimals = valueDecimals ?? 0;
+    const numStr = decimals > 0 ? v.toFixed(decimals) : String(Math.round(v));
+    const prefix = valuePrefix ?? "";
+    const suffix = valueSuffix ?? (unit ? ` ${unit}` : "");
+    return `${prefix}${numStr}${suffix}`;
+  });
   return (
     <figure className="rounded-lg border border-line bg-panel p-4">
       <figcaption className="mb-2 text-sm font-medium">

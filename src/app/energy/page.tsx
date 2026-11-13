@@ -93,8 +93,8 @@ export default async function EnergyPage({
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <BarPanel title="Monthly wall energy" unit="kWh" data={wallData} color="var(--accent)" formatValue={(v) => `${Math.round(v)} kWh`} />
-            <BarPanel title="Charging losses" unit="kWh" data={lossData} color="var(--bad)" formatValue={(v) => `${v.toFixed(1)} kWh`} />
+            <BarPanel title="Monthly wall energy" unit="kWh" data={wallData} color="var(--accent)" valueDecimals={0} valueSuffix=" kWh" />
+            <BarPanel title="Charging losses" unit="kWh" data={lossData} color="var(--bad)" valueDecimals={1} valueSuffix=" kWh" />
           </div>
 
           <section className="mt-6">
