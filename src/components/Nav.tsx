@@ -21,6 +21,7 @@ const links = [
   { href: "/timeline", label: "Timeline" },
   { href: "/places", label: "Places" },
   { href: "/updates", label: "Updates" },
+  { href: "/updates/impact", label: "Update impact" },
 ];
 
 export default function Nav() {
