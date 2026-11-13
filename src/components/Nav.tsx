@@ -11,6 +11,7 @@ const links = [
   { href: "/charges", label: "Charges" },
   { href: "/costs", label: "Costs" },
   { href: "/charge-lab", label: "Charge lab" },
+  { href: "/energy", label: "Energy" },
   { href: "/stats", label: "Stats" },
   { href: "/efficiency", label: "Efficiency" },
   { href: "/battery", label: "Battery" },
