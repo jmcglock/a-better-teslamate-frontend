@@ -13,7 +13,7 @@ TeslaMate itself is untouched.
 Prefer a **release tag** (semver). Every main build also gets an immutable `sha-<short>` tag. No floating `latest`.
 
 ```bash
-IMG=ghcr.io/jmcglock/a-better-teslamate-frontend:1.6.0
+IMG=ghcr.io/jmcglock/a-better-teslamate-frontend:1.7.0
 # or pin a build: ...:sha-<short> from Packages / Actions
 
 docker pull "$IMG"
@@ -31,7 +31,11 @@ docker compose up -d
 ```
 
 Image: `ghcr.io/jmcglock/a-better-teslamate-frontend`  
-Tags: `1.6.0` / `v1.6.0` on releases; `sha-<short>` on every main build.
+Tags: `1.7.0` / `v1.7.0` on releases; `sha-<short>` on every main build.
+
+## What's in 1.7.0
+
+- Charging performance lab, energy budget, usage & sleep analytics, recurring routes, battery stress & SoC exposure, and software update impact pages.
 
 ## What's in 1.6.0
 
