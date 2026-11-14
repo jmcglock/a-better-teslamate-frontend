@@ -72,7 +72,7 @@ export default async function DrivePage({ params }: { params: Promise<{ id: stri
           </dd>
           {rangeGained !== null && (
             <p className="text-[11px] text-ink-2">
-              Δ {formatDistance(Math.abs(rangeGained), settings.unitOfLength, 1)} used
+              Δ {formatDistance(Math.abs(rangeGained), settings.unitOfLength, 1)} {rangeGained > 0 ? "gained" : "used"}
             </p>
           )}
         </div>

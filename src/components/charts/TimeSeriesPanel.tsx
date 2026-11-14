@@ -8,7 +8,7 @@ import { chartColor } from "./useChartColors";
 type Point = { t: number; v: number | null };
 
 function fmtTime(t: number): string {
-  return new Date(t).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return new Date(t).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 }
 
 export default function TimeSeriesPanel({

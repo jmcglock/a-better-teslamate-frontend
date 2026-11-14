@@ -98,7 +98,7 @@ export default async function DrivesPage({
             <li key={d.id}>
               <Link href={`/drives/${d.id}`} className="list-row">
                 <span className="w-40 font-[family-name:var(--font-mono)] text-xs text-ink-2">
-                  {new Date(d.startDate).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
+                  {new Date(d.startDate).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}
                 </span>
                 {cars.length > 1 && <span className="text-xs text-ink-2">{d.carName}</span>}
                 <span className="min-w-0 flex-1 truncate text-sm">{d.startLabel} → {d.endLabel}</span>

@@ -4,7 +4,8 @@ export type ChargeLabSession = {
   peakPowerKw: number | null;
   timeTo80Min: number | null;
   energyAddedKwh: number;
-  energyUsedKwh: number;
+  /** Null when TeslaMate did not record wall energy for the session. */
+  energyUsedKwh: number | null;
   durationMin: number | null;
 };
 
@@ -60,6 +61,19 @@ function lossPct(added: number, used: number): number | null {
   return round(((used - added) / used) * 100, 1);
 }
 
+// Only sessions with metered wall energy count toward loss; mixing in
+// unmetered ones (used unknown) would drag the percentage toward zero.
+function meteredLoss(list: ChargeLabSession[]): { used: number; lossPct: number | null } {
+  let added = 0;
+  let used = 0;
+  for (const s of list) {
+    if (s.energyUsedKwh === null) continue;
+    added += s.energyAddedKwh;
+    used += s.energyUsedKwh;
+  }
+  return { used: round(used, 1), lossPct: lossPct(round(added, 1), round(used, 1)) };
+}
+
 export function buildChargingPerformance(
   sessions: ChargeLabSession[],
   socBins: SocBin[],
@@ -81,21 +95,19 @@ export function buildChargingPerformance(
   const sites: SiteScore[] = [...bySite.entries()]
     .map(([location, list]) => {
       const energyAdded = round(list.reduce((s, x) => s + x.energyAddedKwh, 0), 1);
-      const energyUsed = round(list.reduce((s, x) => s + x.energyUsedKwh, 0), 1);
+      const metered = meteredLoss(list);
       return {
         location,
         sessions: list.length,
         avgPeakPowerKw: avg(list.map((x) => x.peakPowerKw).filter((v): v is number => v !== null)),
         avgTimeTo80Min: avg(list.map((x) => x.timeTo80Min).filter((v): v is number => v !== null)),
         energyAddedKwh: energyAdded,
-        energyUsedKwh: energyUsed,
-        lossPct: lossPct(energyAdded, energyUsed),
+        energyUsedKwh: metered.used,
+        lossPct: metered.lossPct,
       };
     })
     .sort((a, b) => b.sessions - a.sessions || b.energyAddedKwh - a.energyAddedKwh);
 
-  const totalAdded = round(sessions.reduce((s, x) => s + x.energyAddedKwh, 0), 1);
-  const totalUsed = round(sessions.reduce((s, x) => s + x.energyUsedKwh, 0), 1);
 
   return {
     summary: {
@@ -103,7 +115,7 @@ export function buildChargingPerformance(
       sessionsWithCurve: sessions.filter((s) => s.peakPowerKw !== null).length,
       avgPeakPowerKw: avg(peaks),
       medianTimeTo80Min: median(times),
-      lossPct: lossPct(totalAdded, totalUsed),
+      lossPct: meteredLoss(sessions).lossPct,
       dcSessions: sessions.filter((s) => s.peakPowerKw !== null && s.peakPowerKw >= 20).length,
     },
     socBins: bins,

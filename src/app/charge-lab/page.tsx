@@ -78,15 +78,15 @@ export default async function ChargeLabPage({
             </div>
             <div className="rounded-2xl border border-line bg-panel px-4 py-3">
               <div className="text-xs uppercase tracking-wide text-ink-2">Avg peak power</div>
-              <div className="text-lg font-semibold">{insights.summary.avgPeakPowerKw ?? "—"} kW</div>
+              <div className="text-lg font-semibold">{insights.summary.avgPeakPowerKw === null ? "—" : `${insights.summary.avgPeakPowerKw} kW`}</div>
             </div>
             <div className="rounded-2xl border border-line bg-panel px-4 py-3">
               <div className="text-xs uppercase tracking-wide text-ink-2">Median time to 80%</div>
-              <div className="text-lg font-semibold">{insights.summary.medianTimeTo80Min ?? "—"} min</div>
+              <div className="text-lg font-semibold">{insights.summary.medianTimeTo80Min === null ? "—" : `${insights.summary.medianTimeTo80Min} min`}</div>
             </div>
             <div className="rounded-2xl border border-line bg-panel px-4 py-3">
               <div className="text-xs uppercase tracking-wide text-ink-2">Charging losses</div>
-              <div className="text-lg font-semibold">{insights.summary.lossPct ?? "—"}%</div>
+              <div className="text-lg font-semibold">{insights.summary.lossPct === null ? "—" : `${insights.summary.lossPct}%`}</div>
             </div>
           </div>
 
@@ -99,10 +99,10 @@ export default async function ChargeLabPage({
                   <li key={site.location} className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm">
                     <span className="min-w-0 flex-1 truncate font-medium">{site.location}</span>
                     <span className="text-ink-2">{site.sessions} sessions</span>
-                    <span>{site.avgPeakPowerKw ?? "—"} kW peak</span>
-                    <span className="text-ink-2">{site.avgTimeTo80Min ?? "—"} min to 80%</span>
+                    <span>{site.avgPeakPowerKw === null ? "—" : `${site.avgPeakPowerKw} kW`} peak</span>
+                    <span className="text-ink-2">{site.avgTimeTo80Min === null ? "—" : `${site.avgTimeTo80Min} min`} to 80%</span>
                     <span>{formatEnergy(site.energyAddedKwh)}</span>
-                    <span className="text-ink-2">{site.lossPct ?? "—"}% loss</span>
+                    <span className="text-ink-2">{site.lossPct === null ? "—" : `${site.lossPct}%`} loss</span>
                   </li>
                 ))}
               </ul>

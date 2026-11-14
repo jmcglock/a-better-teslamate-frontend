@@ -65,7 +65,7 @@ export function buildEnergyBudget(
         ? round((rangeUsedKm * efficiencyWhPerKm) / 1000, 1)
         : null;
     const unaccountedKwh =
-      drivingKwh === null ? null : round(Math.max(0, packKwh - drivingKwh - chargingLossKwh), 1);
+      drivingKwh === null ? null : round(Math.max(0, packKwh - drivingKwh), 1);
     const cost = round(charge?.cost ?? 0, 2);
     return {
       month: key,

@@ -10,7 +10,7 @@ import {
   historyHref,
   parseCarId,
 } from "@/lib/db/range";
-import { formatCost, formatEnergy, formatPct } from "@/lib/format";
+import { KM_PER_MI, formatCost, formatDistance, formatEnergy, formatPct } from "@/lib/format";
 import { STATS_RANGES, parseStatsRange, statsRangeMonths } from "@/lib/db/stats";
 
 export const dynamic = "force-dynamic";
@@ -46,9 +46,12 @@ export default async function CostsPage({
   if (!settings) return <DataUnavailable service="database" detail="No settings" />;
 
   const hasData = insights.summary.sessions > 0;
+  const unit = settings.unitOfLength;
+  const perDist = (perKm: number | null) => (perKm === null ? null : unit === "mi" ? perKm * KM_PER_MI : perKm);
+  const costPer100Summary = perDist(insights.summary.costPer100Km);
   const costPer100KmData = insights.monthly.map((m) => ({
     label: m.label,
-    v: m.costPer100Km ?? 0,
+    v: perDist(m.costPer100Km) ?? 0,
   }));
   const costData = insights.monthly.map((m) => ({ label: m.label, v: m.cost }));
 
@@ -68,13 +71,13 @@ export default async function CostsPage({
             <FilterPills
               options={cars.map((c) => ({ key: String(c.id), label: c.name }))}
               active={String(car.id)}
-              hrefFor={(id) => historyHref("/costs", { car: Number(id), range })}
+              hrefFor={(id) => historyHref("/costs", { defaultRange: "12m", car: Number(id), range })}
             />
           )}
           <FilterPills
             options={STATS_RANGES}
             active={range}
-            hrefFor={(key) => historyHref("/costs", { car: cars.length > 1 ? car.id : null, range: key })}
+            hrefFor={(key) => historyHref("/costs", { defaultRange: "12m", car: cars.length > 1 ? car.id : null, range: key })}
           />
         </div>
       </div>
@@ -108,11 +111,11 @@ export default async function CostsPage({
               <div className="text-xs text-ink-2">priced energy only</div>
             </div>
             <div className="rounded-2xl border border-line bg-panel px-4 py-3">
-              <div className="text-xs uppercase tracking-wide text-ink-2">Cost / 100 km</div>
+              <div className="text-xs uppercase tracking-wide text-ink-2">Cost / 100 {unit}</div>
               <div className="text-lg font-semibold">
-                {insights.summary.costPer100Km === null ? "—" : formatCost(insights.summary.costPer100Km, currency)}
+                {costPer100Summary === null ? "—" : formatCost(costPer100Summary, currency)}
               </div>
-              <div className="text-xs text-ink-2">{insights.summary.distanceKm.toFixed(0)} km driven</div>
+              <div className="text-xs text-ink-2">{formatDistance(insights.summary.distanceKm, unit, 0)} driven</div>
             </div>
           </div>
 
@@ -127,8 +130,8 @@ export default async function CostsPage({
               valueSuffix=""
             />
             <BarPanel
-              title="Cost per 100 km"
-              unit={`${currency}/100km`}
+              title={`Cost per 100 ${unit}`}
+              unit={`${currency}/100${unit}`}
               data={costPer100KmData}
               color="var(--good)"
               valuePrefix={currency}

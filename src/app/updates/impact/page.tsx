@@ -4,12 +4,32 @@ import { getUpdateImpact } from "@/lib/db/updateImpact";
 import { listCarIdentities } from "@/lib/db/stats";
 import { safe } from "@/lib/db/pool";
 import { parseCarId } from "@/lib/db/range";
-import { formatDuration } from "@/lib/format";
+import { KM_PER_MI, type LengthUnit } from "@/lib/format";
+import { getSettings } from "@/lib/db/settings";
 
 export const dynamic = "force-dynamic";
 
-function metricText(value: number | null, digits = 1): string {
-  return value === null ? "—" : value.toFixed(digits);
+// standbyDrain has no data source yet (always empty), so it is not shown.
+const METRICS = ["efficiency", "range", "dcSpeed"] as const;
+type ShownMetric = (typeof METRICS)[number];
+
+function metricMeta(key: ShownMetric, unit: LengthUnit): { label: string; scale: number; digits: number } {
+  switch (key) {
+    case "efficiency":
+      return unit === "mi"
+        ? { label: "Efficiency (Wh/mi)", scale: KM_PER_MI, digits: 0 }
+        : { label: "Efficiency (Wh/km)", scale: 1, digits: 0 };
+    case "range":
+      return unit === "mi"
+        ? { label: "Range at 100% (mi)", scale: 1 / KM_PER_MI, digits: 0 }
+        : { label: "Range at 100% (km)", scale: 1, digits: 0 };
+    case "dcSpeed":
+      return { label: "Peak DC power (kW)", scale: 1, digits: 0 };
+  }
+}
+
+function metricText(value: number | null, scale: number, digits: number): string {
+  return value === null ? "—" : (value * scale).toFixed(digits);
 }
 
 export default async function UpdateImpactPage({
@@ -26,16 +46,17 @@ export default async function UpdateImpactPage({
   const carId = parseCarId(sp.car, cars.map((c) => c.id));
   const car = carId === null ? cars[0] : cars.find((c) => c.id === carId) ?? cars[0];
 
-  const res = await safe(getUpdateImpact(car.id));
+  const res = await safe(Promise.all([getUpdateImpact(car.id), getSettings()]));
   if (!res.ok) return <DataUnavailable service="database" detail={res.error} />;
-  const impacts = res.data;
+  const [impacts, settings] = res.data;
+  const unit: LengthUnit = settings.unitOfLength;
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-[family-name:var(--font-cond)] text-2xl font-semibold tracking-tight">Update impact</h1>
-          <p className="mt-1 text-sm text-ink-2">Before/after comparison of efficiency, range, DC speed, and standby drain per software version.</p>
+          <p className="mt-1 text-sm text-ink-2">Before/after comparison of efficiency, range, and DC speed per software version.</p>
         </div>
       </div>
 
@@ -61,14 +82,16 @@ export default async function UpdateImpactPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {(["efficiency", "range", "dcSpeed", "standbyDrain"] as const).map((key) => {
+                    {METRICS.map((key) => {
                       const m = impact.metrics[key];
+                      const { label, scale, digits } = metricMeta(key, unit);
+                      const delta = m.delta === null ? null : m.delta * scale;
                       return (
                         <tr key={key} className="border-b border-line-subtle/60 last:border-0">
-                          <td className="px-2 py-1 font-medium">{key}</td>
-                          <td className="px-2 py-1 text-right">{metricText(m.before)}</td>
-                          <td className="px-2 py-1 text-right">{metricText(m.after)}</td>
-                          <td className="px-2 py-1 text-right">{m.delta === null ? "—" : `${m.delta > 0 ? "+" : ""}${m.delta.toFixed(key === "standbyDrain" ? 2 : 1)}`}</td>
+                          <td className="px-2 py-1 font-medium">{label}</td>
+                          <td className="px-2 py-1 text-right">{metricText(m.before, scale, digits)}</td>
+                          <td className="px-2 py-1 text-right">{metricText(m.after, scale, digits)}</td>
+                          <td className="px-2 py-1 text-right">{delta === null ? "—" : `${delta > 0 ? "+" : ""}${delta.toFixed(digits)}`}</td>
                           <td className="px-2 py-1 text-right text-ink-2">{m.beforeSamples}/{m.afterSamples}</td>
                         </tr>
                       );

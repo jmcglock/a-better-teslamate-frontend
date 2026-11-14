@@ -121,6 +121,53 @@ export async function listCharges(
   });
 }
 
+export type ChargeTotals = {
+  sessions: number;
+  energyKwh: number;
+  cost: number;
+  /** Cost divided by energy of priced sessions only; null when none are priced. */
+  avgCostPerKwh: number | null;
+};
+
+type ChargeTotalsRow = {
+  sessions: number;
+  energy_kwh: string | number;
+  cost: string | number;
+  priced_energy_kwh: string | number;
+};
+
+export async function getChargeTotals(
+  opts: { carId?: number | null; months?: number | null } = {},
+): Promise<ChargeTotals> {
+  const key = `chargeTotals:${opts.carId ?? "all"}:${opts.months ?? "all"}`;
+  return cached(key, CHARGE_TTL_MS, async () => {
+    const params: unknown[] = [];
+    const where = ["cp.charge_energy_added > 0.1"];
+    if (opts.carId != null) {
+      params.push(opts.carId);
+      where.push(`cp.car_id = $${params.length}`);
+    }
+    const rows = await q<ChargeTotalsRow>(
+      `SELECT count(*)::int AS sessions,
+              coalesce(sum(cp.charge_energy_added), 0) AS energy_kwh,
+              coalesce(sum(cp.cost), 0) AS cost,
+              coalesce(sum(cp.charge_energy_added) FILTER (WHERE cp.cost IS NOT NULL), 0) AS priced_energy_kwh
+       FROM charging_processes cp
+       WHERE ${where.join(" AND ")}${sinceMonthsSql("cp.start_date", opts.months ?? null, params)}`,
+      params,
+    );
+    const r = rows[0];
+    const cost = Number(r?.cost ?? 0);
+    const pricedEnergy = Number(r?.priced_energy_kwh ?? 0);
+    return {
+      sessions: r?.sessions ?? 0,
+      energyKwh: Number(r?.energy_kwh ?? 0),
+      cost,
+      avgCostPerKwh: pricedEnergy > 0 ? cost / pricedEnergy : null,
+    };
+  });
+}
+
 export type ChargeLocationSummary = {
   location: string;
   count: number;

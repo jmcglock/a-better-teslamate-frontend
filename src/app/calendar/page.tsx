@@ -4,6 +4,7 @@ import { calendarLevel, calendarWeeks, parseCalendarMetric, CALENDAR_METRICS } f
 import { getChargeDays, getDriveDays, statsRangeMonths } from "@/lib/db/stats";
 import { listCarIdentities } from "@/lib/db/stats";
 import { safe } from "@/lib/db/pool";
+import { localToday } from "@/lib/db/localTz";
 import { historyHref } from "@/lib/db/range";
 import { STATS_RANGES, parseStatsRange, statsRangeLabel } from "@/lib/db/stats";
 import { formatEnergy } from "@/lib/format";
@@ -53,19 +54,17 @@ export default async function CalendarPage({
 
   // Generate all days in range (last N months) for the grid.
   const months = statsRangeMonths(range);
-  const end = new Date();
-  const start = new Date();
+  // Grid matches the SQL window: whole local calendar months up to local today.
+  const end = localToday();
+  let start: Date;
   if (months === null) {
     const earliest = days.length ? days[0].date : null;
-    if (earliest) {
-      start.setTime(new Date(earliest + "T00:00:00Z").getTime());
-    } else {
-      start.setUTCMonth(start.getUTCMonth() - 36);
-    }
+    start = earliest
+      ? new Date(earliest + "T00:00:00Z")
+      : new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - 36, 1));
   } else {
-    start.setUTCMonth(start.getUTCMonth() - months);
+    start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - (months - 1), 1));
   }
-  start.setUTCHours(0, 0, 0, 0);
   const weeks = calendarWeeks(start, end);
 
   const shades = metric === "drives" ? DRIVE_SHADES : CHARGE_SHADES;
@@ -86,7 +85,7 @@ export default async function CalendarPage({
             <FilterPills
               options={cars.map((c) => ({ key: String(c.id), label: c.name }))}
               active={String(car.id)}
-              hrefFor={(id) => historyHref("/calendar", { car: Number(id), range, metric: metricForLinks })}
+              hrefFor={(id) => historyHref("/calendar", { defaultRange: "12m", car: Number(id), range, metric: metricForLinks })}
             />
           )}
           <FilterPills
@@ -103,7 +102,7 @@ export default async function CalendarPage({
           <FilterPills
             options={STATS_RANGES}
             active={range}
-            hrefFor={(key) => historyHref("/calendar", { car: carForLinks, range: key, metric: metricForLinks })}
+            hrefFor={(key) => historyHref("/calendar", { defaultRange: "12m", car: carForLinks, range: key, metric: metricForLinks })}
           />
         </div>
       </div>

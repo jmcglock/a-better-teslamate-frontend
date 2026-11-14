@@ -10,7 +10,7 @@ describe("buildEnergyBudget", () => {
     );
     expect(result.monthly[0].chargingLossKwh).toBe(10);
     expect(result.monthly[0].drivingKwh).toBe(15);
-    expect(result.monthly[0].unaccountedKwh).toBe(75);
+    expect(result.monthly[0].unaccountedKwh).toBe(85);
     expect(result.summary.costPerUsefulKwh).toBeCloseTo(2.667, 3);
   });
 

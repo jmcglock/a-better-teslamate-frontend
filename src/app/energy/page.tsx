@@ -35,7 +35,7 @@ export default async function EnergyPage({
   const [chargeMonths, driveMonths, settings] = res.data;
   if (!settings) return <DataUnavailable service="database" detail="No settings" />;
 
-  const insights = buildEnergyBudget(chargeMonths, driveMonths, car.efficiency);
+  const insights = buildEnergyBudget(chargeMonths, driveMonths, car.efficiency === null ? null : car.efficiency * 1000);
   const hasData = insights.summary.wallKwh > 0;
 
   const wallData = insights.monthly.map((m) => ({ label: m.label, v: m.wallKwh }));
@@ -76,7 +76,7 @@ export default async function EnergyPage({
             <div className="rounded-2xl border border-line bg-panel px-4 py-3">
               <div className="text-xs uppercase tracking-wide text-ink-2">Pack added</div>
               <div className="text-lg font-semibold">{formatEnergy(insights.summary.packKwh)}</div>
-              <div className="text-xs text-ink-2">{insights.summary.chargingLossPct ?? "—"}% charging loss</div>
+              <div className="text-xs text-ink-2">{insights.summary.chargingLossPct === null ? "—" : `${insights.summary.chargingLossPct}%`} charging loss</div>
             </div>
             <div className="rounded-2xl border border-line bg-panel px-4 py-3">
               <div className="text-xs uppercase tracking-wide text-ink-2">Driving energy</div>

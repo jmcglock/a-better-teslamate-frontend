@@ -127,13 +127,15 @@ function median(values: number[]): number {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
-function utcDay(iso: string): string {
-  return iso.slice(0, 10);
+/** Calendar day in the server's local time zone. */
+function localDay(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 
-/** Monday–Friday in UTC. */
+/** Monday–Friday in the server's local time zone. */
 function isWeekday(iso: string): boolean {
-  const day = new Date(iso).getUTCDay();
+  const day = new Date(iso).getDay();
   return day >= 1 && day <= 5;
 }
 
@@ -216,7 +218,7 @@ function buildRoute(
         )
       : null;
 
-  const days = new Set(drives.map((d) => utcDay(d.startDate)));
+  const days = new Set(drives.map((d) => localDay(d.startDate)));
   const weekdayShare =
     drives.length > 0 ? drives.filter((d) => isWeekday(d.startDate)).length / drives.length : 0;
   const outliers = findOutliers(drives, options.outlierPct, options.minCount);

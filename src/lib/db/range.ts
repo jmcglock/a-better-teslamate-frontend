@@ -1,3 +1,5 @@
+import { LOCAL_TZ } from "./localTz";
+
 const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_.]*$/;
 
 /**
@@ -9,7 +11,9 @@ export function sinceMonthsSql(column: string, months: number | null, params: un
   if (months === null) return "";
   if (!IDENTIFIER.test(column)) throw new Error(`unsafe column: ${column}`);
   params.push(Math.max(0, months - 1));
-  return ` AND ${column} >= date_trunc('month', now()) - ($${params.length}::int * interval '1 month')`;
+  // Month boundary is local midnight, converted back to UTC to match the column
+  // (and keep it sargable).
+  return ` AND ${column} >= (((date_trunc('month', now() AT TIME ZONE '${LOCAL_TZ}') - ($${params.length}::int * interval '1 month')) AT TIME ZONE '${LOCAL_TZ}') AT TIME ZONE 'UTC')`;
 }
 
 export const HISTORY_RANGES = [

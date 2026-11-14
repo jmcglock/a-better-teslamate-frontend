@@ -3,8 +3,7 @@ import DataUnavailable from "@/components/DataUnavailable";
 import EmptyState from "@/components/EmptyState";
 import ExportCsvLink from "@/components/ExportCsvLink";
 import FilterPills from "@/components/FilterPills";
-import { listCharges, listTopChargeLocations } from "@/lib/db/charges";
-import { summarizeCharges } from "@/lib/chargeSummary";
+import { getChargeTotals, listCharges, listTopChargeLocations } from "@/lib/db/charges";
 import { listCarIdentities } from "@/lib/db/stats";
 import { safe } from "@/lib/db/pool";
 import {
@@ -36,11 +35,14 @@ export default async function ChargesPage({
 
   const months = historyRangeMonths(range);
   const chargesPromise = listCharges(page, { carId, months });
+  const totalsPromise = getChargeTotals({ carId, months });
   const locationsPromise = listTopChargeLocations({ carId, months, limit: 8 });
   const res = await safe(chargesPromise);
   if (!res.ok) return <DataUnavailable service="database" detail={res.error} />;
   const { items: charges, hasMore } = res.data;
-  const summary = summarizeCharges(charges);
+  const totalsRes = await safe(totalsPromise);
+  if (!totalsRes.ok) return <DataUnavailable service="database" detail={totalsRes.error} />;
+  const summary = totalsRes.data;
   const locationsRes = await safe(locationsPromise);
   const topLocations = locationsRes.ok ? locationsRes.data : [];
   const filtered = carId !== null || range !== "all";
@@ -102,7 +104,7 @@ export default async function ChargesPage({
             <li key={c.id}>
               <Link href={`/charges/${c.id}`} className="list-row">
                 <span className="w-40 font-[family-name:var(--font-mono)] text-xs text-ink-2">
-                  {new Date(c.startDate).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
+                  {new Date(c.startDate).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}
                 </span>
                 {cars.length > 1 && <span className="text-xs text-ink-2">{c.carName}</span>}
                 <span className="min-w-0 flex-1 truncate text-sm">

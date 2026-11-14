@@ -32,7 +32,7 @@ export default async function UpdatesPage({
             <li key={u.id} className="list-row">
               <span className="w-40 font-[family-name:var(--font-mono)] text-xs text-ink-2">
                 {new Date(u.startDate).toLocaleString("en-US", {
-                  month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+                  month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
                 })}
               </span>
               <span className="min-w-0 flex-1 font-[family-name:var(--font-cond)] text-sm font-semibold tracking-tight">

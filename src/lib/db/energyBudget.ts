@@ -2,7 +2,7 @@ import { cached } from "@/lib/cache";
 import { num } from "@/lib/format";
 import { buildEnergyBudget, type EnergyChargeMonth, type EnergyDriveMonth } from "@/lib/energyBudget";
 import { sinceMonthsSql } from "./range";
-import { q } from "./pool";
+import { localTs, q } from "./pool";
 
 const TTL_MS = 5 * 60_000;
 
@@ -14,7 +14,7 @@ export async function getEnergyChargeMonths(carId: number, months: number | null
   return cached(key, TTL_MS, async () => {
     const params: unknown[] = [carId];
     const rows = await q<ChargeRow>(`
-      SELECT date_trunc('month', start_date) AS month,
+      SELECT date_trunc('month', ${localTs("start_date")}) AS month,
              coalesce(sum(charge_energy_used), 0) AS wall,
              coalesce(sum(charge_energy_added), 0) AS pack,
              coalesce(sum(cost), 0) AS cost
@@ -36,7 +36,7 @@ export async function getEnergyDriveMonths(carId: number, months: number | null)
   return cached(key, TTL_MS, async () => {
     const params: unknown[] = [carId];
     const rows = await q<DriveRow>(`
-      SELECT date_trunc('month', start_date) AS month,
+      SELECT date_trunc('month', ${localTs("start_date")}) AS month,
              coalesce(sum(distance), 0) AS distance,
              coalesce(sum(start_rated_range_km - end_rated_range_km), 0) AS range_used
       FROM drives

@@ -46,7 +46,7 @@ export default async function TimelinePage({
               <li key={s.id} className="list-row">
                 <span className="w-40 font-[family-name:var(--font-mono)] text-xs text-ink-2">
                   {new Date(s.startDate).toLocaleString("en-US", {
-                    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+                    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
                   })}
                 </span>
                 <span
