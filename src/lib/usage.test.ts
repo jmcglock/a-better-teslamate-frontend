@@ -54,10 +54,10 @@ describe("buildUsageInsights", () => {
 
     expect(result.allocation.find((a) => a.state === "asleep")?.pct).toBeCloseTo(61.5, 1);
 
-    // asleep → online and offline → updating are wakeups.
-    expect(result.wakeups).toBe(2);
+    // asleep → online is a wakeup; online → offline → updating never slept.
+    expect(result.wakeups).toBe(1);
     expect(result.days).toBeCloseTo(59, 0);
-    expect(result.wakeupsPerDay).toBeCloseTo(2 / 59, 2);
+    expect(result.wakeupsPerDay).toBeCloseTo(1 / 59, 2);
 
     // Offline is its own bucket, so it is not awake time in the monthly trend.
     expect(result.monthly[0]).toMatchObject({
@@ -66,7 +66,7 @@ describe("buildUsageInsights", () => {
       awakeHours: 4,
       drivingHours: 1,
       chargingHours: 1,
-      wakeups: 2,
+      wakeups: 1,
     });
     expect(result.monthly[1]).toMatchObject({ month: "2026-02", asleepHours: 0, awakeHours: 0 });
 
@@ -102,6 +102,18 @@ describe("buildUsageInsights", () => {
     });
     expect(result.monthly[1].wakeupsPerDay).toBeCloseTo(1 / 28, 2);
     expect(result.longestSleepHours).toBe(8);
+    expect(result.wakeups).toBe(1);
+  });
+
+  it("counts a wakeup across an offline gap after sleep", () => {
+    const result = buildUsageInsights(
+      [
+        { state: "asleep", start: "2026-01-01T00:00:00Z", end: "2026-01-01T06:00:00Z" },
+        { state: "offline", start: "2026-01-01T06:00:00Z", end: "2026-01-01T07:00:00Z" },
+        { state: "online", start: "2026-01-01T07:00:00Z", end: "2026-01-01T08:00:00Z" },
+      ],
+      WINDOW,
+    );
     expect(result.wakeups).toBe(1);
   });
 

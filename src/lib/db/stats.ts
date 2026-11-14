@@ -389,16 +389,20 @@ export function summarizeBatteryHealth(
 
 type DrainRow = { end_date: Date; soc_start: number | null; soc_end: number | null; hours: string | number | null };
 
-export async function getVampireDrain(carId: number): Promise<{ label: string; v: number }[]> {
-  return cached(`drain:${carId}`, STATS_TTL_MS, async () => {
-    // Cap lookback tightly — this window scan is expensive and was blowing the tiny Postgres pool.
+export async function getVampireDrain(
+  carId: number,
+  range: StatsRangeKey = "12m",
+): Promise<{ label: string; v: number }[]> {
+  const months = statsRangeMonths(range);
+  return cached(`drain:${carId}:${range}`, STATS_TTL_MS, async () => {
+    const params: unknown[] = [carId];
     const rows = await q<DrainRow>(`
       WITH d AS (
         SELECT car_id, end_date, end_position_id,
                lead(start_date) OVER w AS next_start,
                lead(start_position_id) OVER w AS next_start_pos
         FROM drives
-        WHERE car_id = $1 AND start_date > now() - interval '18 months'
+        WHERE car_id = $1${sinceMonthsSql("start_date", months, params)}
         WINDOW w AS (PARTITION BY car_id ORDER BY start_date)
       )
       SELECT d.end_date, p1.battery_level AS soc_start, p2.battery_level AS soc_end,
@@ -412,8 +416,7 @@ export async function getVampireDrain(carId: number): Promise<{ label: string; v
           SELECT 1 FROM charging_processes cp
           WHERE cp.car_id = d.car_id AND cp.start_date BETWEEN d.end_date AND d.next_start
         )
-      ORDER BY d.end_date DESC LIMIT 200
-    `, [carId]);
+    `, params);
 
     const byMonth = new Map<string, { sum: number; n: number; date: Date }>();
     for (const r of rows) {
@@ -429,7 +432,6 @@ export async function getVampireDrain(carId: number): Promise<{ label: string; v
     }
     return [...byMonth.values()]
       .sort((a, b) => a.date.getTime() - b.date.getTime())
-      .slice(-12)
       .map((m) => ({ label: monthLabel(m.date), v: m.sum / m.n }));
   });
 }

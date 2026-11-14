@@ -51,7 +51,7 @@ export default async function StatsPage({
       getMonthlyEfficiency(car.id, range),
       getBatteryHealth(car.id, range),
       getBatteryHealth(car.id, "all"),
-      getVampireDrain(car.id),
+      getVampireDrain(car.id, range),
       getMonthlyChargeCost(car.id, range),
       chargeSpendByPlace(car.id, statsRangeMonths(range)),
     ]),
@@ -114,7 +114,6 @@ export default async function StatsPage({
         currency={currency}
         healthSummary={healthSummary}
         spendLabel={statsRangeLabel(range).toLowerCase()}
-        drainNote={range === "36m" || range === "all"}
       />
       <ChargePlaceSpend rollup={summarizePlaceSpend(places)} currency={currency} />
     </div>
