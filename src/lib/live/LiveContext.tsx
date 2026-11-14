@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode,
+  createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode,
 } from "react";
 import { mergeSnapshots } from "./coalesce";
 import type { CarSnapshot } from "./snapshot";
@@ -23,7 +23,10 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const wasDisconnected = useRef(false);
 
   useEffect(() => {
-    const es = new EventSource("/api/live");
+    let es: EventSource;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryDelay = 2_000;
+    let disposed = false;
     const pending = new Map<number, CarSnapshot>();
     let raf = 0;
     let opened = false;
@@ -45,8 +48,9 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       }, delay);
     };
 
-    es.onopen = () => {
+    const onOpen = () => {
       opened = true;
+      retryDelay = 2_000;
       if (offlineTimer !== null) {
         clearTimeout(offlineTimer);
         offlineTimer = null;
@@ -60,10 +64,19 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     // EventSource retries on its own and fires error while it does. A short
     // blip should not flash "Live offline" or the reconnect toast. The first
     // connection gets longer before we call it down.
-    es.onerror = () => {
+    // If the server rejects the stream (non-200, wrong content type) the
+    // browser gives up and leaves the EventSource CLOSED; reopen it ourselves.
+    const onError = () => {
       armOffline(opened ? 1_500 : 4_000);
+      if (es.readyState === EventSource.CLOSED && !disposed && retryTimer === null) {
+        retryTimer = setTimeout(() => {
+          retryTimer = null;
+          if (!disposed) connect();
+        }, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 30_000);
+      }
     };
-    es.onmessage = (ev) => {
+    const onMessage = (ev: MessageEvent) => {
       try {
         const { carId, snapshot } = JSON.parse(ev.data) as { carId: number; snapshot: CarSnapshot };
         pending.set(carId, snapshot);
@@ -72,21 +85,27 @@ export function LiveProvider({ children }: { children: ReactNode }) {
         // ignore malformed frames
       }
     };
+    const connect = () => {
+      es = new EventSource("/api/live");
+      es.onopen = onOpen;
+      es.onerror = onError;
+      es.onmessage = onMessage;
+    };
+    connect();
     return () => {
+      disposed = true;
       es.close();
+      if (retryTimer !== null) clearTimeout(retryTimer);
       if (offlineTimer !== null) clearTimeout(offlineTimer);
       if (raf !== 0) cancelAnimationFrame(raf);
     };
   }, []);
 
+  const dismissReconnected = useCallback(() => setJustReconnected(false), []);
+
   const value = useMemo(
-    () => ({
-      snaps,
-      connected,
-      justReconnected,
-      dismissReconnected: () => setJustReconnected(false),
-    }),
-    [snaps, connected, justReconnected],
+    () => ({ snaps, connected, justReconnected, dismissReconnected }),
+    [snaps, connected, justReconnected, dismissReconnected],
   );
 
   return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>;

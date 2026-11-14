@@ -19,6 +19,20 @@ describe("buildChargingPerformance", () => {
     expect(result.sites[0].location).toBe("Supercharger");
   });
 
+  it("ignores sessions without metered wall energy when computing loss", () => {
+    const result = buildChargingPerformance(
+      [
+        { id: 1, location: "Home", peakPowerKw: 11, timeTo80Min: null, energyAddedKwh: 18, energyUsedKwh: 20, durationMin: 45 },
+        { id: 2, location: "Home", peakPowerKw: 11, timeTo80Min: null, energyAddedKwh: 30, energyUsedKwh: null, durationMin: 60 },
+      ],
+      [],
+    );
+
+    expect(result.summary.lossPct).toBe(10);
+    expect(result.sites[0].lossPct).toBe(10);
+    expect(result.sites[0].energyAddedKwh).toBe(48);
+  });
+
   it("handles empty input", () => {
     const result = buildChargingPerformance([], []);
     expect(result.summary.sessions).toBe(0);

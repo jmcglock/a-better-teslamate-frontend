@@ -13,13 +13,14 @@ export function summarizeCharges(charges: readonly ChargeListItem[]): ChargeSumm
   const sessions = charges.length;
   const energyKwh = charges.reduce((sum, charge) => sum + (charge.energyAddedKwh ?? 0), 0);
   const cost = charges.reduce((sum, charge) => sum + (charge.cost ?? 0), 0);
+  const pricedEnergy = charges.reduce((sum, charge) => sum + (charge.cost === null ? 0 : charge.energyAddedKwh ?? 0), 0);
   const durationTotal = charges.reduce((sum, charge) => sum + (charge.durationMin ?? 0), 0);
   const durationCount = charges.filter((charge) => charge.durationMin !== null).length;
   return {
     sessions,
     energyKwh,
     cost,
-    avgCostPerKwh: energyKwh > 0 ? cost / energyKwh : null,
+    avgCostPerKwh: pricedEnergy > 0 ? cost / pricedEnergy : null,
     avgDurationMin: durationCount > 0 ? durationTotal / durationCount : null,
   };
 }

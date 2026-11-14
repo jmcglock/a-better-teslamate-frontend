@@ -8,7 +8,7 @@ import {
   type SocSample,
 } from "@/lib/batteryStress";
 import { sinceMonthsSql } from "./range";
-import { q } from "./pool";
+import { localTs, q } from "./pool";
 
 const STRESS_TTL_MS = 5 * 60_000;
 
@@ -53,46 +53,80 @@ export function mapEndSocRow(row: EndSocRow): ChargeEndSoc | null {
   return { endSoc, energyKwh: num(row.energy) };
 }
 
+type SocBucketRow = {
+  day: Date;
+  soc: string | number | null;
+  min_soc: string | number | null;
+  max_soc: string | number | null;
+  outside_temp: string | number | null;
+  hours: string | number | null;
+};
+
+type SocBuckets = { samples: SocSample[]; daily: DailySocRange[] };
+
 /**
- * SoC samples downsampled to 10-minute buckets, each weighted by the time until
- * the next sample. Gaps are capped at 6 hours so long offline periods do not
- * dominate the exposure percentages.
+ * One pass over positions, hash-aggregated into 10-minute buckets. Each bucket
+ * is weighted by the time until the next bucket (capped at 6 hours so long
+ * offline periods do not dominate exposure) and also feeds the per-day SoC
+ * range. Avoids sorting millions of raw rows.
  */
+async function getSocBuckets(carId: number, months: number | null): Promise<SocBuckets> {
+  const key = `socBuckets:${carId}:${months ?? "all"}`;
+  return cached(key, STRESS_TTL_MS, async () => {
+    const params: unknown[] = [carId];
+    const rows = await q<SocBucketRow>(`
+      WITH buckets AS (
+        SELECT floor(extract(epoch FROM p.date) / 600) AS bucket,
+               min(p.date) AS date,
+               avg(p.battery_level) AS soc,
+               min(p.battery_level) AS min_soc,
+               max(p.battery_level) AS max_soc,
+               avg(p.outside_temp) AS outside_temp
+        FROM positions p
+        WHERE p.car_id = $1 AND p.battery_level IS NOT NULL${sinceMonthsSql("p.date", months, params)}
+        GROUP BY 1
+      )
+      SELECT date_trunc('day', ${localTs("date")}) AS day,
+             soc, min_soc, max_soc, outside_temp,
+             extract(epoch FROM LEAST(
+               lead(date) OVER (ORDER BY date) - date,
+               interval '6 hours'
+             )) / 3600 AS hours
+      FROM buckets
+      ORDER BY date
+    `, params);
+
+    const samples: SocSample[] = [];
+    const days = new Map<number, DailySocRow>();
+    for (const row of rows) {
+      const sample = mapSocSampleRow(row);
+      if (sample) samples.push(sample);
+      const minSoc = num(row.min_soc);
+      const maxSoc = num(row.max_soc);
+      if (minSoc === null || maxSoc === null) continue;
+      const t = row.day.getTime();
+      const prev = days.get(t);
+      if (!prev) {
+        days.set(t, { day: row.day, min_soc: minSoc, max_soc: maxSoc });
+      } else {
+        prev.min_soc = Math.min(num(prev.min_soc) ?? minSoc, minSoc);
+        prev.max_soc = Math.max(num(prev.max_soc) ?? maxSoc, maxSoc);
+      }
+    }
+    const daily = [...days.values()].flatMap((row) => {
+      const range = mapDailySocRow(row);
+      return range === null ? [] : [range];
+    });
+    return { samples, daily };
+  });
+}
+
+/** SoC samples downsampled to 10-minute buckets, weighted by hours held. */
 export async function getSocSamples(
   carId: number,
   months: number | null,
 ): Promise<SocSample[]> {
-  const key = `socSamples:${carId}:${months ?? "all"}`;
-  return cached(key, STRESS_TTL_MS, async () => {
-    const params: unknown[] = [carId];
-    const rows = await q<SocSampleRow>(`
-      WITH sampled AS (
-        SELECT DISTINCT ON (bucket) date, battery_level, outside_temp
-        FROM (
-          SELECT p.date, p.battery_level, p.outside_temp,
-                 floor(extract(epoch FROM p.date) / 600) AS bucket
-          FROM positions p
-          WHERE p.car_id = $1 AND p.battery_level IS NOT NULL${sinceMonthsSql("p.date", months, params)}
-        ) p
-        ORDER BY bucket, date
-      ),
-      weighted AS (
-        SELECT battery_level AS soc, outside_temp,
-               extract(epoch FROM LEAST(
-                 lead(date) OVER (ORDER BY date) - date,
-                 interval '6 hours'
-               )) / 3600 AS hours
-        FROM sampled
-      )
-      SELECT soc, outside_temp, hours
-      FROM weighted
-      WHERE hours > 0
-    `, params);
-    return rows.flatMap((row) => {
-      const sample = mapSocSampleRow(row);
-      return sample === null ? [] : [sample];
-    });
-  });
+  return (await getSocBuckets(carId, months)).samples;
 }
 
 /** Per-day observed SoC range, used for depth-of-discharge. */
@@ -100,22 +134,7 @@ export async function getDailySocRanges(
   carId: number,
   months: number | null,
 ): Promise<DailySocRange[]> {
-  const key = `dailySocRanges:${carId}:${months ?? "all"}`;
-  return cached(key, STRESS_TTL_MS, async () => {
-    const params: unknown[] = [carId];
-    const rows = await q<DailySocRow>(`
-      SELECT date_trunc('day', p.date) AS day,
-             min(p.battery_level) AS min_soc,
-             max(p.battery_level) AS max_soc
-      FROM positions p
-      WHERE p.car_id = $1 AND p.battery_level IS NOT NULL${sinceMonthsSql("p.date", months, params)}
-      GROUP BY 1 ORDER BY 1
-    `, params);
-    return rows.flatMap((row) => {
-      const range = mapDailySocRow(row);
-      return range === null ? [] : [range];
-    });
-  });
+  return (await getSocBuckets(carId, months)).daily;
 }
 
 /** SoC at the end of each charging session, for the charge-target distribution. */

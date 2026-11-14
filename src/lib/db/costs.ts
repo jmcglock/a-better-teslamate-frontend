@@ -8,7 +8,7 @@ import {
   type PlaceCost,
 } from "@/lib/costInsights";
 import { sinceMonthsSql } from "./range";
-import { q } from "./pool";
+import { localTs, q } from "./pool";
 
 const COST_TTL_MS = 5 * 60_000;
 
@@ -53,7 +53,7 @@ export async function getCostChargeMonths(
   return cached(key, COST_TTL_MS, async () => {
     const params: unknown[] = [carId];
     const rows = await q<CostChargeMonthRow>(`
-      SELECT date_trunc('month', start_date) AS month,
+      SELECT date_trunc('month', ${localTs("start_date")}) AS month,
              count(*)::int AS sessions,
              count(*) FILTER (WHERE cost IS NOT NULL)::int AS sessions_with_cost,
              coalesce(sum(charge_energy_added), 0) AS energy,
@@ -83,7 +83,7 @@ export async function getCostDriveMonths(
   return cached(key, COST_TTL_MS, async () => {
     const params: unknown[] = [carId];
     const rows = await q<CostDriveMonthRow>(`
-      SELECT date_trunc('month', start_date) AS month,
+      SELECT date_trunc('month', ${localTs("start_date")}) AS month,
              coalesce(sum(distance), 0) AS distance
       FROM drives
       WHERE car_id = $1 AND distance > 0.1${sinceMonthsSql("start_date", months, params)}

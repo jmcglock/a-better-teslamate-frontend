@@ -1,4 +1,13 @@
-import { Pool } from "pg";
+import pg, { Pool } from "pg";
+
+export { LOCAL_TZ, localTs } from "./localTz";
+
+// TeslaMate stores UTC in `timestamp without time zone` columns. node-pg
+// parses those (and serializes Date params) in the process TZ by default,
+// which shifts every time by the host offset when TZ is not UTC.
+const TIMESTAMP_OID = 1114;
+pg.types.setTypeParser(TIMESTAMP_OID, (s) => new Date(`${s.replace(" ", "T")}Z`));
+pg.defaults.parseInputDatesAsUTC = true;
 
 const g = globalThis as unknown as { pgPool?: Pool };
 
@@ -7,6 +16,8 @@ const isProd = process.env.NODE_ENV === "production";
 function createPool(): Pool {
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
+    // Keep now()/date_trunc consistent with the UTC-stored columns.
+    options: "-c TimeZone=UTC",
     // TeslaMate Postgres often runs with max_connections ~20 shared with
     // TeslaMate + Grafana. Keep this modest; hold a warm client in prod so
     // first-click after idle does not pay TCP + auth again.

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { CarCard as CarCardData } from "@/lib/db/cars";
 import type { Settings } from "@/lib/db/settings";
 import { useLive } from "@/lib/live/useLive";
@@ -86,6 +86,12 @@ function Flag({ children, tone = "default" }: { children: ReactNode; tone?: "def
 export default function CarCard({ initial, settings }: { initial: CarCardData; settings: Settings }) {
   const { snaps, connected } = useLive();
   const live = snaps[initial.id] ?? {};
+  // Re-render each minute so the "parked for" duration stays current.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const state = liveStr(live.state) ?? initial.state;
   const soc = liveNum(live.battery_level) ?? initial.batteryLevel;
@@ -207,7 +213,7 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
 
   const sinceLabel = since
     ? new Date(since).toLocaleString("en-US", {
-        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
       })
     : null;
   const parkedFor =
@@ -396,7 +402,7 @@ export default function CarCard({ initial, settings }: { initial: CarCardData; s
               <p className="mt-1 font-[family-name:var(--font-cond)] text-lg font-semibold">
                 {new Date(scheduledCharge).toLocaleString("en-US", {
                   weekday: "short", month: "short", day: "numeric",
-                  hour: "2-digit", minute: "2-digit", hour12: false,
+                  hour: "2-digit", minute: "2-digit", hourCycle: "h23",
                 })}
               </p>
             </div>

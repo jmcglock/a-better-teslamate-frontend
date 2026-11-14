@@ -7,14 +7,15 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { OSM_STYLE } from "./MiniMap";
 import { useChartColors } from "./charts/useChartColors";
 
-export default function RouteMap({ points }: { points: { lat: number; lon: number }[] }) {
+export default function RouteMap({ points }: { points: { lat: number | null; lon: number | null }[] }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<MaplibreMap | null>(null);
   const c = useChartColors();
 
   useEffect(() => {
-    if (!el.current || map.current || points.length === 0) return;
-    const coords = points.map((p) => [p.lon, p.lat] as [number, number]);
+    if (!el.current || map.current) return;
+    const coords = points.flatMap((p) => (p.lat === null || p.lon === null ? [] : [[p.lon, p.lat] as [number, number]]));
+    if (coords.length === 0) return;
 
     // Single recorded position: no line to draw, show a marker instead.
     if (coords.length < 2) {
@@ -24,11 +25,17 @@ export default function RouteMap({ points }: { points: { lat: number; lon: numbe
       return () => { m.remove(); map.current = null; };
     }
 
-    const lons = coords.map((p) => p[0]);
-    const lats = coords.map((p) => p[1]);
+    let [minLon, minLat] = coords[0];
+    let [maxLon, maxLat] = coords[0];
+    for (const [lon, lat] of coords) {
+      if (lon < minLon) minLon = lon;
+      if (lon > maxLon) maxLon = lon;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    }
     const bounds: LngLatBoundsLike = [
-      [Math.min(...lons), Math.min(...lats)],
-      [Math.max(...lons), Math.max(...lats)],
+      [minLon, minLat],
+      [maxLon, maxLat],
     ];
     const m = new Map({ container: el.current, style: OSM_STYLE, bounds, fitBoundsOptions: { padding: 40 } });
     m.on("load", () => {

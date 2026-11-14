@@ -48,6 +48,17 @@ describe("buildCostInsights", () => {
     expect(result.summary.costPer100Km).toBeCloseTo(5.19, 2);
   });
 
+  it("extrapolates the priced rate over unpriced energy for cost per 100 km", () => {
+    const result = buildCostInsights(
+      [{ month: "2026-01", sessions: 2, sessionsWithCost: 1, energyKwh: 40, costEnergyKwh: 20, cost: 5 }],
+      [{ month: "2026-01", distanceKm: 200 }],
+      [],
+    );
+    // $0.25/kWh × 40 kWh over 200 km
+    expect(result.monthly[0].costPer100Km).toBe(5);
+    expect(result.summary.costPer100Km).toBe(5);
+  });
+
   it("finds a savings opportunity from the cheapest priced location", () => {
     const result = buildCostInsights(
       [],

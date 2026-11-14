@@ -3,7 +3,7 @@ import { cached } from "@/lib/cache";
 const CAR_IDENTITY_TTL_MS = 60_000;
 import { num } from "@/lib/format";
 import { sinceMonthsSql } from "./range";
-import { q } from "./pool";
+import { localTs, q } from "./pool";
 
 const STATS_TTL_MS = 5 * 60_000;
 
@@ -54,7 +54,7 @@ export async function getMonthlyMileage(
   return cached(`mileage:${carId}:${range}`, STATS_TTL_MS, async () => {
     const params: unknown[] = [carId];
     const rows = await q<MonthRow>(`
-      SELECT date_trunc('month', start_date) AS month, sum(distance) AS v
+      SELECT date_trunc('month', ${localTs("start_date")}) AS month, sum(distance) AS v
       FROM drives WHERE car_id = $1 AND distance > 0.1${sinceMonthsSql("start_date", months, params)}
       GROUP BY 1 ORDER BY 1 DESC
     `, params);
@@ -70,7 +70,7 @@ export async function getMonthlyEfficiency(
   return cached(`efficiency:${carId}:${range}`, STATS_TTL_MS, async () => {
     const params: unknown[] = [carId];
     const rows = await q<MonthRow>(`
-      SELECT date_trunc('month', d.start_date) AS month,
+      SELECT date_trunc('month', ${localTs("d.start_date")}) AS month,
              sum((d.start_rated_range_km - d.end_rated_range_km) * c.efficiency) * 1000 / nullif(sum(d.distance), 0) AS v
       FROM drives d JOIN cars c ON c.id = d.car_id
       WHERE d.car_id = $1 AND d.distance > 0.1 AND d.start_rated_range_km IS NOT NULL AND d.end_rated_range_km IS NOT NULL${sinceMonthsSql("d.start_date", months, params)}
@@ -151,7 +151,7 @@ export async function getDriveDays(
   return cached(`driveDays:${carId}:${range}`, STATS_TTL_MS, async () => {
     const params: unknown[] = [carId];
     const rows = await q<{ d: Date; c: string | number; dist: string | number | null }>(`
-      SELECT date_trunc('day', d.start_date) AS d, count(*) AS c, sum(d.distance) AS dist
+      SELECT date_trunc('day', ${localTs("d.start_date")}) AS d, count(*) AS c, sum(d.distance) AS dist
       FROM drives d
       WHERE d.car_id = $1 AND d.distance > 0.1${sinceMonthsSql("d.start_date", months, params)}
       GROUP BY 1 ORDER BY 1
@@ -175,7 +175,7 @@ export async function getChargeDays(
   return cached(`chargeDays:${carId}:${range}`, STATS_TTL_MS, async () => {
     const params: unknown[] = [carId];
     const rows = await q<{ d: Date; c: string | number; energy: string | number | null }>(`
-      SELECT date_trunc('day', cp.start_date) AS d, count(*) AS c, sum(cp.charge_energy_added) AS energy
+      SELECT date_trunc('day', ${localTs("cp.start_date")}) AS d, count(*) AS c, sum(cp.charge_energy_added) AS energy
       FROM charging_processes cp
       WHERE cp.car_id = $1 AND cp.charge_energy_added > 0.1${sinceMonthsSql("cp.start_date", months, params)}
       GROUP BY 1 ORDER BY 1
@@ -196,7 +196,7 @@ export async function getBatteryHealth(
   return cached(`health:${carId}:${range}`, STATS_TTL_MS, async () => {
     const params: unknown[] = [carId];
     const rows = await q<MonthRow>(`
-      SELECT date_trunc('month', cp.start_date) AS month,
+      SELECT date_trunc('month', ${localTs("cp.start_date")}) AS month,
              max(cp.end_rated_range_km / nullif(cp.end_battery_level, 0) * 100) AS v
       FROM charging_processes cp
       WHERE cp.car_id = $1 AND cp.end_battery_level >= 50 AND cp.end_rated_range_km IS NOT NULL${sinceMonthsSql("cp.start_date", months, params)}
@@ -223,7 +223,7 @@ export async function getMonthlyChargeCost(
   return cached(`chargeCost:${carId}:${range}`, STATS_TTL_MS, async () => {
     const params: unknown[] = [carId];
     const rows = await q<CostMonthRow>(`
-      SELECT date_trunc('month', start_date) AS month,
+      SELECT date_trunc('month', ${localTs("start_date")}) AS month,
              sum(cost) AS cost,
              sum(charge_energy_added) AS energy
       FROM charging_processes
@@ -295,10 +295,11 @@ export function newCarRatedRangeKm(car: {
     : vinYear === "T" ? 2026
     : null;
 
-  const isSR =
-    market.includes("SR") || market.includes("STANDARD") ||
-    trim === "50" || trim === "RWD" || market.includes("RWD");
   const isLR = market.includes("LR") || market.includes("LONG") || trim === "74" || trim === "75" || trim === "AWD";
+  const isSR =
+    !isLR &&
+    (market.includes("SR") || market.includes("STANDARD") ||
+      trim === "50" || trim === "RWD" || market.includes("RWD"));
   const isP = market.includes("P") || market.startsWith("P") || trim.startsWith("P") || market.includes("PERF");
 
   if (model === "3") {
@@ -420,8 +421,10 @@ export async function getVampireDrain(carId: number): Promise<{ label: string; v
       if (r.soc_start === null || r.soc_end === null || hours === null) continue;
       const drain = drainPctPerDay(r.soc_start, r.soc_end, hours);
       if (drain === null) continue;
-      const key = `${r.end_date.getUTCFullYear()}-${r.end_date.getUTCMonth()}`;
-      const cur = byMonth.get(key) ?? { sum: 0, n: 0, date: r.end_date };
+      // Bucket by local month; monthLabel reads UTC fields, so key on a UTC-midnight date.
+      const month = new Date(Date.UTC(r.end_date.getFullYear(), r.end_date.getMonth(), 1));
+      const key = month.toISOString();
+      const cur = byMonth.get(key) ?? { sum: 0, n: 0, date: month };
       byMonth.set(key, { sum: cur.sum + drain, n: cur.n + 1, date: cur.date });
     }
     return [...byMonth.values()]

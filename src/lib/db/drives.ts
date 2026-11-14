@@ -38,7 +38,7 @@ export type PointRow = {
 
 export type DrivePoint = {
   t: number; speed: number | null; soc: number | null;
-  lat: number; lon: number;
+  lat: number | null; lon: number | null;
   elevation: number | null; power: number | null;
 };
 
@@ -139,8 +139,8 @@ export function mapDrivePoint(r: PointRow): DrivePoint {
     t: r.date.getTime(),
     speed: num(r.speed),
     soc: num(r.battery_level),
-    lat: num(r.latitude) ?? 0,
-    lon: num(r.longitude) ?? 0,
+    lat: num(r.latitude),
+    lon: num(r.longitude),
     elevation: num(r.elevation),
     power: num(r.power),
   };

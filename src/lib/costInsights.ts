@@ -79,9 +79,19 @@ function avgRate(cost: number, costEnergyKwh: number): number | null {
   return round(cost / costEnergyKwh, 3);
 }
 
-function perDistance(cost: number, distanceKm: number, hasCost: boolean): number | null {
-  if (!hasCost || distanceKm <= 0) return null;
-  return round((cost / distanceKm) * 100, 2);
+/**
+ * Cost per 100 km. Unpriced sessions would otherwise count as free energy, so
+ * the priced-session rate is applied to all energy charged.
+ */
+function perDistance(
+  cost: number,
+  costEnergyKwh: number,
+  energyKwh: number,
+  distanceKm: number,
+): number | null {
+  if (costEnergyKwh <= 0 || distanceKm <= 0) return null;
+  const estimated = (cost / costEnergyKwh) * Math.max(energyKwh, costEnergyKwh);
+  return round((estimated / distanceKm) * 100, 2);
 }
 
 /** Pure roll-up so the page math is unit-testable without Postgres. */
@@ -107,7 +117,9 @@ export function buildCostInsights(
       energyKwh,
       distanceKm,
       avgCostPerKwh: hasCost ? avgRate(cost, charge?.costEnergyKwh ?? 0) : null,
-      costPer100Km: perDistance(cost, distanceKm, hasCost),
+      costPer100Km: hasCost
+        ? perDistance(cost, charge?.costEnergyKwh ?? 0, charge?.energyKwh ?? 0, distanceKm)
+        : null,
     };
   });
 
@@ -163,7 +175,8 @@ export function buildCostInsights(
       cost,
       distanceKm,
       avgCostPerKwh: sessionsWithCost > 0 ? avgRate(cost, costEnergyKwh) : null,
-      costPer100Km: perDistance(cost, distanceKm, sessionsWithCost > 0),
+      costPer100Km:
+        sessionsWithCost > 0 ? perDistance(cost, costEnergyKwh, energyKwh, distanceKm) : null,
     },
     monthly,
     places: placePoints,

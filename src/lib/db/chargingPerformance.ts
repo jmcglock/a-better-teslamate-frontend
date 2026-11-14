@@ -23,6 +23,7 @@ type SessionRow = {
   peak_power: string | number | null;
   first_80: Date | null;
   start_date: Date;
+  start_battery_level: string | number | null;
   energy_added: string | number | null;
   energy_used: string | number | null;
   duration_min: string | number | null;
@@ -44,7 +45,8 @@ export async function getChargingPerformanceInsights(carId: number, months: numb
       WHERE cp.car_id = $1
         AND ch.battery_level IS NOT NULL
         AND ch.charger_power IS NOT NULL
-        AND ch.charger_power > 0${monthSql}
+        AND ch.charger_power > 0
+        AND (SELECT max(c2.charger_power) FROM charges c2 WHERE c2.charging_process_id = cp.id) >= 20${monthSql}
       GROUP BY 1 ORDER BY 1
     `, params);
 
@@ -56,6 +58,7 @@ export async function getChargingPerformanceInsights(carId: number, months: numb
              max(ch.charger_power) AS peak_power,
              min(ch.date) FILTER (WHERE ch.battery_level >= 80) AS first_80,
              cp.start_date,
+             cp.start_battery_level,
              cp.charge_energy_added AS energy_added,
              cp.charge_energy_used AS energy_used,
              cp.duration_min
@@ -64,7 +67,7 @@ export async function getChargingPerformanceInsights(carId: number, months: numb
       LEFT JOIN addresses a ON a.id = cp.address_id
       LEFT JOIN geofences g ON g.id = cp.geofence_id
       WHERE cp.car_id = $1 AND cp.charge_energy_added > 0.1${monthSql2}
-      GROUP BY cp.id, location, cp.start_date, cp.charge_energy_added, cp.charge_energy_used, cp.duration_min
+      GROUP BY cp.id, location, cp.start_date, cp.start_battery_level, cp.charge_energy_added, cp.charge_energy_used, cp.duration_min
       ORDER BY cp.start_date DESC
     `, params2);
 
@@ -77,7 +80,7 @@ export async function getChargingPerformanceInsights(carId: number, months: numb
 
     const sessions: ChargeLabSession[] = sessionRows.map((r) => {
       const timeTo80 =
-        r.first_80 && r.start_date
+        r.first_80 && r.start_date && (num(r.start_battery_level) ?? 0) < 80
           ? Math.max(0, (r.first_80.getTime() - r.start_date.getTime()) / 60000)
           : null;
       return {
@@ -86,7 +89,7 @@ export async function getChargingPerformanceInsights(carId: number, months: numb
         peakPowerKw: num(r.peak_power),
         timeTo80Min: timeTo80 === null ? null : Math.round(timeTo80 * 10) / 10,
         energyAddedKwh: num(r.energy_added) ?? 0,
-        energyUsedKwh: num(r.energy_used) ?? num(r.energy_added) ?? 0,
+        energyUsedKwh: num(r.energy_used),
         durationMin: num(r.duration_min),
       };
     });

@@ -102,7 +102,7 @@ export default function ActivityStrip({
               </p>
               <p className="mt-1 font-[family-name:var(--font-mono)] text-xs text-ink-2">
                 {new Date(d.startDate).toLocaleString("en-US", {
-                  month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+                  month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
                 })}
                 {" · "}
                 {formatDistance(d.distanceKm, settings.unitOfLength)}
@@ -129,7 +129,7 @@ export default function ActivityStrip({
               <p className="mt-2 truncate text-sm font-medium">{c.location}</p>
               <p className="mt-1 font-[family-name:var(--font-mono)] text-xs text-ink-2">
                 {new Date(c.startDate).toLocaleString("en-US", {
-                  month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+                  month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
                 })}
                 {" · "}
                 {formatEnergy(c.energyAddedKwh)}
