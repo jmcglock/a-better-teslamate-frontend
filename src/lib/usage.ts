@@ -65,7 +65,6 @@ const MS_HOUR = 3_600_000;
 const MS_DAY = 86_400_000;
 
 const AWAKE = new Set<UsageState>(["driving", "charging", "online", "updating"]);
-const ASLEEP = new Set<UsageState>(["asleep", "offline"]);
 
 const round = (v: number, places: number): number => {
   const p = 10 ** places;
@@ -293,7 +292,10 @@ export function buildUsageInsights(
       }
     }
 
-    if (previous !== null && ASLEEP.has(previous) && AWAKE.has(interval.state)) {
+    // Offline is unreachable, not asleep: skip it so asleep → offline → online
+    // still counts as a wakeup but online → offline → online does not.
+    if (interval.state === "offline") continue;
+    if (previous === "asleep" && AWAKE.has(interval.state)) {
       wakeups += 1;
       const bucket = buckets.get(monthKey(interval.start));
       if (bucket) bucket.wakeups += 1;

@@ -7,7 +7,7 @@ import { formatDistance, kmToUnit, type LengthUnit } from "@/lib/format";
 
 export default function StatsCharts({
   unit, mileage, efficiency, health, drain, healthSummary, chargeCost, currency = "$",
-  spendLabel = "12 mo", drainNote = false,
+  spendLabel = "12 mo",
 }: {
   unit: LengthUnit;
   mileage: { label: string; v: number }[];
@@ -17,7 +17,6 @@ export default function StatsCharts({
   chargeCost?: { label: string; cost: number; energyKwh: number }[];
   currency?: string;
   spendLabel?: string;
-  drainNote?: boolean;
   healthSummary: {
     currentKm: number | null;
     peakKm: number | null;
@@ -97,7 +96,7 @@ export default function StatsCharts({
           formatTick={(t) => new Date(t).toLocaleDateString("en-US", { month: "short", year: "2-digit" })}
         />
         <BarPanel
-          title={drainNote ? "Standby drain · 18 mo" : "Standby drain"} unit="%/day" color={chartColor.orange}
+          title="Standby drain" unit="%/day" color={chartColor.orange}
           data={drain.map((d) => ({ label: d.label, v: Number(d.v.toFixed(2)) }))}
           formatValue={(v) => `${v.toFixed(2)} %/day`}
         />
