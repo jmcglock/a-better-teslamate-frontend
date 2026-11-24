@@ -3,6 +3,7 @@ import DataUnavailable from "@/components/DataUnavailable";
 import EmptyState from "@/components/EmptyState";
 import ExportCsvLink from "@/components/ExportCsvLink";
 import FilterPills from "@/components/FilterPills";
+import Pagination from "@/components/Pagination";
 import { getChargeTotals, listCharges, listTopChargeLocations } from "@/lib/db/charges";
 import { listCarIdentities } from "@/lib/db/stats";
 import { safe } from "@/lib/db/pool";
@@ -14,6 +15,7 @@ import {
   parseHistoryRange,
 } from "@/lib/db/range";
 import { formatCost, formatDuration, formatEnergy, formatPct } from "@/lib/format";
+import { HISTORY_PAGE_SIZE, pageInfo, pageRangeLabel } from "@/lib/pagination";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +36,7 @@ export default async function ChargesPage({
   const carId = parseCarId(sp.car, cars.map((car) => car.id));
 
   const months = historyRangeMonths(range);
-  const chargesPromise = listCharges(page, { carId, months });
+  const chargesPromise = listCharges(page, { carId, months, pageSize: HISTORY_PAGE_SIZE });
   const totalsPromise = getChargeTotals({ carId, months });
   const locationsPromise = listTopChargeLocations({ carId, months, limit: 8 });
   const res = await safe(chargesPromise);
@@ -47,6 +49,7 @@ export default async function ChargesPage({
   const topLocations = locationsRes.ok ? locationsRes.data : [];
   const filtered = carId !== null || range !== "all";
   const href = (nextPage: number) => historyHref("/charges", { car: carId, range, page: nextPage });
+  const info = pageInfo(page, HISTORY_PAGE_SIZE, summary.sessions, charges.length);
 
   return (
     <div>
@@ -70,7 +73,7 @@ export default async function ChargesPage({
           />
         </div>
       </div>
-      {charges.length > 0 ? (
+      {charges.length > 0 || info.pastEnd ? (
         <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-2xl border border-line bg-panel px-4 py-3">
             <div className="text-xs uppercase tracking-wide text-ink-2">Sessions</div>
@@ -92,7 +95,14 @@ export default async function ChargesPage({
           </div>
         </div>
       ) : null}
-      {charges.length === 0 ? (
+      {info.pastEnd ? (
+        <EmptyState
+          title="No charges on this page"
+          detail={info.totalPages > 0 ? `This view has ${info.totalPages} ${info.totalPages === 1 ? "page" : "pages"}.` : undefined}
+          icon="⚡"
+          action={{ href: href(1), label: "Back to newest" }}
+        />
+      ) : charges.length === 0 ? (
         <EmptyState
           title={filtered ? "No charges in this view" : "No charging sessions"}
           detail={filtered ? "Widen the range or pick another car." : "Plug in and TeslaMate will record sessions here."}
@@ -138,10 +148,7 @@ export default async function ChargesPage({
           </ul>
         </section>
       ) : null}
-      <nav className="mt-4 flex gap-3 text-sm">
-        {page > 1 && <Link className="pressable text-ink-2 hover:text-ink" href={href(page - 1)}>← Newer</Link>}
-        {hasMore && <Link className="pressable text-ink-2 hover:text-ink" href={href(page + 1)}>Older →</Link>}
-      </nav>
+      <Pagination page={page} hasMore={hasMore} label={pageRangeLabel(info, "charges")} hrefFor={href} />
     </div>
   );
 }

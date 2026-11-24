@@ -3,6 +3,7 @@ import DataUnavailable from "@/components/DataUnavailable";
 import EmptyState from "@/components/EmptyState";
 import ExportCsvLink from "@/components/ExportCsvLink";
 import FilterPills from "@/components/FilterPills";
+import Pagination from "@/components/Pagination";
 import { getDriveTotals, listDrives } from "@/lib/db/drives";
 import { listCarIdentities } from "@/lib/db/stats";
 import { getSettings } from "@/lib/db/settings";
@@ -15,6 +16,7 @@ import {
   parseHistoryRange,
 } from "@/lib/db/range";
 import { formatDistance, formatDriveCount, formatDuration, formatEfficiency, formatSpeed } from "@/lib/format";
+import { HISTORY_PAGE_SIZE, pageInfo, pageRangeLabel } from "@/lib/pagination";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +37,7 @@ export default async function DrivesPage({
 
   const months = historyRangeMonths(range);
   const res = await safe(Promise.all([
-    listDrives(page, { carId, months }),
+    listDrives(page, { carId, months, pageSize: HISTORY_PAGE_SIZE }),
     getDriveTotals({ carId, months }),
     getSettings(),
   ]));
@@ -43,6 +45,7 @@ export default async function DrivesPage({
   const [{ items: drives, hasMore }, totals, settings] = res.data;
   const filtered = carId !== null || range !== "all";
   const href = (nextPage: number) => historyHref("/drives", { car: carId, range, page: nextPage });
+  const info = pageInfo(page, HISTORY_PAGE_SIZE, totals.count, drives.length);
 
   return (
     <div>
@@ -86,7 +89,14 @@ export default async function DrivesPage({
           <p className="mt-1 font-[family-name:var(--font-cond)] text-lg font-semibold">{formatDuration(totals.durationMin)}</p>
         </div>
       </section>
-      {drives.length === 0 ? (
+      {info.pastEnd ? (
+        <EmptyState
+          title="No drives on this page"
+          detail={info.totalPages > 0 ? `This view has ${info.totalPages} ${info.totalPages === 1 ? "page" : "pages"}.` : undefined}
+          icon="→"
+          action={{ href: href(1), label: "Back to newest" }}
+        />
+      ) : drives.length === 0 ? (
         <EmptyState
           title={filtered ? "No drives in this view" : "No drives on this page"}
           detail={filtered ? "Widen the range or pick another car." : "Take a trip and TeslaMate will log it here."}
@@ -112,10 +122,7 @@ export default async function DrivesPage({
           ))}
         </ul>
       )}
-      <nav className="mt-4 flex gap-3 text-sm">
-        {page > 1 && <Link className="pressable text-ink-2 hover:text-ink" href={href(page - 1)}>← Newer</Link>}
-        {hasMore && <Link className="pressable text-ink-2 hover:text-ink" href={href(page + 1)}>Older →</Link>}
-      </nav>
+      <Pagination page={page} hasMore={hasMore} label={pageRangeLabel(info, "drives")} hrefFor={href} />
     </div>
   );
 }
