@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  drainPctPerDay, monthLabel, newCarRatedRangeKm, parseStatsRange, statsRangeMonths, summarizeBatteryHealth,
+  batteryForecastFor, drainPctPerDay, monthLabel, newCarRatedRangeKm, parseStatsRange, statsRangeMonths, summarizeBatteryHealth,
 } from "@/lib/db/stats";
 
 describe("parseStatsRange", () => {
@@ -62,5 +62,20 @@ describe("summarizeBatteryHealth", () => {
     expect(summarizeBatteryHealth([])).toMatchObject({
       currentKm: null, peakKm: null, healthPct: null, degradationPct: null, baseline: null,
     });
+  });
+});
+
+describe("batteryForecastFor", () => {
+  const month = 30.44 * 86_400_000;
+  const series = Array.from({ length: 12 }, (_, i) => ({ t: i * month, v: 480 - i }));
+  it("uses the new-car baseline when known", () => {
+    const f = batteryForecastFor(series, { newKm: 500, peakKm: 480 }, 80);
+    expect(f.baselineKm).toBe(500);
+    expect(f.targetKm).toBe(400);
+  });
+  it("falls back to the observed peak", () => {
+    const f = batteryForecastFor(series, { newKm: null, peakKm: 480 }, 90);
+    expect(f.baselineKm).toBe(480);
+    expect(f.targetKm).toBe(432);
   });
 });

@@ -1,4 +1,5 @@
 import { cached } from "@/lib/cache";
+import { DEFAULT_FORECAST_TARGET, forecastBatteryCapacity, type BatteryForecast } from "@/lib/batteryForecast";
 
 const CAR_IDENTITY_TTL_MS = 60_000;
 import { num } from "@/lib/format";
@@ -385,6 +386,20 @@ export function summarizeBatteryHealth(
   const currentKwh = currentKm !== null && eff !== null ? currentKm * eff : null;
   const newKwh = newKm !== null && eff !== null ? newKm * eff : null;
   return { currentKm, peakKm, newKm, healthPct, degradationPct, currentKwh, newKwh, baseline };
+}
+
+/**
+ * Capacity forecast against the same baseline the health summary uses
+ * (new-car range when known, else observed peak).
+ */
+export function batteryForecastFor(
+  series: { t: number; v: number | null }[],
+  summary: Pick<BatteryHealthSummary, "newKm" | "peakKm">,
+  targetPct: number = DEFAULT_FORECAST_TARGET,
+  now?: number,
+): BatteryForecast {
+  const baselineKm = summary.newKm && summary.newKm > 0 ? summary.newKm : summary.peakKm;
+  return forecastBatteryCapacity(series, { baselineKm, targetPct, now });
 }
 
 type DrainRow = { end_date: Date; soc_start: number | null; soc_end: number | null; hours: string | number | null };
